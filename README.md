@@ -27,6 +27,22 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 
 Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du inn Home Assistant-fanen på nytt. Integrasjonen registrerer kortfilen automatisk, også når dashboardressurser styres fra YAML. En eksisterende YAML-oppføring med `/terrain_sun/terrain-sun.js` og typen `module` kan brukes videre.
 
+### Skjermbilder
+
+Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
+
+#### Sol i dag
+
+<img src="docs/images/sol-i-dag.webp" width="600" alt="Sol i dag med døgnstripe, endringer i direkte soltid og utvidede lysfaser">
+
+#### Lokal horisont
+
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med datovelger, terrengprofil, solbane og direkte solperioder for valgt dag">
+
+#### Solåret
+
+<img src="docs/images/solaret.webp" width="600" alt="Solåret med årsgraf, valgt dato, døgnstripe og datoen for neste gang det er så lyst">
+
 ## Entiteter og beregninger
 
 - Binærsensoren **Direkte sol** viser om øvre solrand er over terrengprofilen. Sensoren **Neste overgang for direkte sol** gir et tidsstempel for første overgang innen utgangen av neste lokale døgn, når en slik overgang finnes.
