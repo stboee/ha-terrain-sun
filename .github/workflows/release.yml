@@ -1,0 +1,37 @@
+name: Publish Terrain Sun
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - custom_components/terrain_sun/manifest.json
+      - .github/workflows/release.yml
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Publish the manifest version
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=$(gh api "repos/$GITHUB_REPOSITORY/contents/custom_components/terrain_sun/manifest.json?ref=$GITHUB_SHA" --jq .content | base64 --decode)
+          version=$(jq -er .version <<< "$manifest")
+          if [[ ! "$version" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(\.[0-9]+)?$ ]]; then
+            printf 'Invalid Terrain Sun version: %s\n' "$version" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            actual=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)
+            test "$actual" = "$GITHUB_SHA"
+          else
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Terrain Sun $version" --generate-notes
+          fi
