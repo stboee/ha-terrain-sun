@@ -1,0 +1,36 @@
+# Terrain Sun
+
+Se når terrenget slipper sola til der du bor. Én Home Assistant-integrasjon gir entiteter for direkte sol og tre dashboardkort. Beregningene kjører lokalt i Home Assistant.
+
+## Installer i Home Assistant
+
+Krever Home Assistant **2026.11.2** eller nyere.
+
+1. Åpne **Innstillinger → Marketplace → Legg til fra lenke**. Koble til GitHub hvis Home Assistant ber om det.
+2. Legg til `https://github.com/stboee/ha-terrain-sun` og installer **Terrain Sun**.
+3. Legg til **Terrain Sun** under **Innstillinger → Enheter og tjenester**. Velg `horizon.txt` fra PeakFinder (**Export → Horizon for Stellarium**).
+4. Rediger dashboardet og legg til kortene fra kortvelgeren. Søk etter **Terrain Sun**. Siden oppsettet registrerer dashboardressursen, kan nettleserfanen trenge en oppdatering første gang.
+
+For en første gjennomgang kan du bruke [eksempelprofilen](examples/horizon.txt). Den er konstruert og bruker plasseringen fra Home Assistant. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Begge bruker tidssonen fra Home Assistant. For å bytte profil velger du **Konfigurer på nytt** på integrasjonen og laster opp en ny fil.
+
+Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på nytt når Marketplace ber om det. Terrengprofilen ligger i integrasjonens konfigurasjon og følger med ved oppdatering.
+
+## Kort
+
+| Kort | Innhold | Type i YAML |
+|---|---|---|
+| **Sol i dag** | Status, neste overgang, døgnstripe, solperioder, dagslengde og utvidbare lysfaser. | `custom:terrain-sun-today` |
+| **Lokal horisont** | Terreng og solbane i grader, vist som dagsutsnitt eller 360°. Gull markerer den synlige delen av solbanen. | `custom:terrain-sun-horizon` |
+| **Solåret** | Samme årsgraf i klokkeslett- og varighetsvisning, med en velgbar dato, kronologisk døgnstripe, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
+
+Kort kan også legges til med typen i tabellen. Hvis selve listen over dashboardressurser styres med YAML, legg til `/terrain_sun/terrain-sun.js` med type `module` i ressurslisten. Ved en versjonsoppdatering kan du laste nettleserfanen på nytt. I vanlig lagringsmodus registreres og versjoneres ressursen automatisk.
+
+## Entiteter og beregninger
+
+- Binærsensoren **Direkte sol** viser om øvre solrand er over terrengprofilen. Sensoren **Neste overgang for direkte sol** gir et tidsstempel for første overgang innen utgangen av neste lokale døgn, når en slik overgang finnes.
+- Sensorer gir dagens direkte soltid og dagslengde ved fri horisont i minutter, samt solas geometriske høyde, azimut og terrenghøyden i solretningen. Nåverdiene oppdateres omtrent hvert minutt.
+- Terrengprofilen interpoleres lineært rundt hele kompasset. Solposisjonen følger NOAA/Meeus-modellen. Direkte sol bruker tilsynelatende øvre solrand med standard refraksjon og en solradius på 0,26667°. Standard soloppgang og solnedgang bruker −0,833° geometrisk solhøyde. Skumringsgrensene er −6°, −12° og −18°.
+- Modellen søker etter kryssinger i trinn på ett minutt og beregner tidspunktet for kryssinger mellom søkepunktene til nærmeste hele sekund. Svært korte perioder kan falle mellom søkepunktene. Beregnet direkte soltid er summen av alle synlige perioder i døgnet. Tider vises i lokal tid, mens varigheter beregnes i faktisk medgått tid.
+- Tidene beskriver terrengskygge ved utsiktspunktet. Faste hindringer inngår slik de er representert i horisontprofilen. Observert direkte sol vil også avhenge av skydekke og lokale hindringer.
+
+Solarberegningen er basert på [NOAA Solar Calculator](https://gml.noaa.gov/grad/solcalc/calcdetails.html). Den reelle horisontprofilen må passe til stedet du ønsker å beregne for.

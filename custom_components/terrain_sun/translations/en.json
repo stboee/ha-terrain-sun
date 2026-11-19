@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Import your horizon",
+        "description": "Choose a PeakFinder Stellarium horizon export (horizon.txt). The coordinates in the file determine the viewpoint. If the file has no coordinates, Terrain Sun uses the Home Assistant location.",
+        "data": { "profile": "Horizon file" }
+      },
+      "reconfigure": {
+        "title": "Replace the horizon profile",
+        "description": "Choose a new horizon.txt file. The existing entities and cards will use the new profile.",
+        "data": { "profile": "Horizon file" }
+      }
+    },
+    "error": {
+      "invalid_profile": "Could not read the horizon. Use a UTF-8 text file with azimuth and elevation pairs covering the full compass."
+    }
+  },
+  "entity": {
+    "binary_sensor": { "direct_sun": { "name": "Direct sun" } },
+    "sensor": {
+      "next_transition": { "name": "Next direct sun transition" },
+      "direct_duration": { "name": "Direct sun duration today" },
+      "daylight_duration": { "name": "Daylight duration today" },
+      "solar_elevation": { "name": "Solar elevation" },
+      "solar_azimuth": { "name": "Solar azimuth" },
+      "terrain_elevation": { "name": "Terrain elevation at the Sun" }
+    }
+  }
+}

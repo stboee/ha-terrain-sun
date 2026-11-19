@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Importer horisonten",
+        "description": "Velg en Stellarium-eksport fra PeakFinder (horizon.txt). Koordinatene i filen angir utsiktspunktet. Hvis filen mangler koordinater, brukes plasseringen fra Home Assistant.",
+        "data": { "profile": "Horisontfil" }
+      },
+      "reconfigure": {
+        "title": "Bytt horisontprofil",
+        "description": "Velg en ny horizon.txt. De samme entitetene og kortene tar i bruk den nye profilen.",
+        "data": { "profile": "Horisontfil" }
+      }
+    },
+    "error": {
+      "invalid_profile": "Kunne ikke lese horisonten. Bruk en UTF-8-tekstfil med par av azimut og høydevinkel som dekker hele kompasset."
+    }
+  },
+  "entity": {
+    "binary_sensor": { "direct_sun": { "name": "Direkte sol" } },
+    "sensor": {
+      "next_transition": { "name": "Neste overgang for direkte sol" },
+      "direct_duration": { "name": "Direkte soltid i dag" },
+      "daylight_duration": { "name": "Dagslengde i dag" },
+      "solar_elevation": { "name": "Solhøyde" },
+      "solar_azimuth": { "name": "Solazimut" },
+      "terrain_elevation": { "name": "Terrenghøyde i solretningen" }
+    }
+  }
+}

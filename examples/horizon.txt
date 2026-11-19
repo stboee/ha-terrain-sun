@@ -1,0 +1,12 @@
+# Synthetic example profile. Uses the Home Assistant location.
+# Azimuth Altitude
+0 7
+45 11
+90 9
+120 4
+150 6
+180 7
+210 4
+240 8
+270 4
+315 6

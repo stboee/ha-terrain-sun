@@ -1,0 +1,559 @@
+/* Terrain Sun dashboard cards. Chart geometry is based on the server model. */
+const TYPES = {
+  "terrain-sun-today": ["Sol i dag", "Sun today"],
+  "terrain-sun-horizon": ["Lokal horisont", "Local horizon"],
+  "terrain-sun-year": ["Solåret", "Solar year"],
+};
+const WORDS = {
+  no: {
+    direct: "Direkte sol", terrain_shade: "Dagslys i terrengskygge", daylight: "Dagslengde ved fri horisont",
+    daylight_phase: "Dagslys", civil: "Borgerlig skumring", nautical: "Nautisk skumring",
+    astronomical: "Astronomisk skumring", night: "Natt", golden: "Gyllen time",
+    nextSun: "Neste direkte sol", nextShade: "Sola forsvinner", noChange: "Ingen overgang innen i morgen",
+    noSun: "Ingen direkte sol", sunNow: "Direkte sol nå", behind: "Sola er under terrenghorisonten",
+    periods: "Solperioder", phases: "Lysfaser", fromYesterday: "Endring fra i går", toTomorrow: "Endring til i morgen",
+    seasons: "Solhverv og kveldssol", june: "Junisolverv", december: "Desembersolverv",
+    evening: "Klokkeslett for kveldssol", lastEvening: "Siste dato med direkte sol på dette klokkeslettet",
+    elevation: "Øvre solrand", terrain: "Terrenghøyde", bearing: "Azimut", profile: "Terrengprofil",
+    sunPath: "Solbane", area: "Utsnitt", circle: "360°", clock: "Klokkeslett", duration: "Varighet",
+    year: "År", date: "Dato", graph: "Årsgraf", dayTrack: "Døgnstripe", hour: "t", minute: "min",
+    loading: "Beregner …", unavailable: "Data er utilgjengelige. Kontroller at Terrain Sun er satt opp.",
+    retry: "Prøv igjen", prev: "Forrige dag", next: "Neste dag", today: "I dag", directions: ["N", "Ø", "S", "V", "N"],
+  },
+  en: {
+    direct: "Direct sun", terrain_shade: "Daylight in terrain shade", daylight: "Daylight with a clear horizon",
+    daylight_phase: "Daylight", civil: "Civil twilight", nautical: "Nautical twilight",
+    astronomical: "Astronomical twilight", night: "Night", golden: "Golden hour",
+    nextSun: "Next direct sun", nextShade: "Sun drops below terrain", noChange: "No transition through tomorrow",
+    noSun: "No direct sun", sunNow: "Direct sun now", behind: "Sun is below the terrain horizon",
+    periods: "Sun periods", phases: "Light phases", fromYesterday: "Change since yesterday", toTomorrow: "Change by tomorrow",
+    seasons: "Solstices and evening sun", june: "June solstice", december: "December solstice",
+    evening: "Evening sun at", lastEvening: "Last date with direct sun at this time",
+    elevation: "Upper solar limb", terrain: "Terrain altitude", bearing: "Azimuth", profile: "Terrain profile",
+    sunPath: "Sun path", area: "Detail", circle: "360°", clock: "Clock times", duration: "Duration",
+    year: "Year", date: "Date", graph: "Annual chart", dayTrack: "Day timeline", hour: "h", minute: "min",
+    loading: "Calculating …", unavailable: "Data is unavailable. Check that Terrain Sun is set up.",
+    retry: "Retry", prev: "Previous day", next: "Next day", today: "Today", directions: ["N", "E", "S", "W", "N"],
+  },
+};
+
+const STYLES = /* css */ `
+  :host {display:block;min-width:0;container-type:inline-size}
+  ha-card {
+    --ts-sun:#f5ba4c;--ts-day:#a3cbd5;--ts-civil:#709bab;--ts-nautical:#507382;
+    --ts-astronomical:#365260;--ts-night:#223742;
+    --ts-line:var(--divider-color,#d7dfe3);--ts-muted:var(--secondary-text-color,#56636b);
+    --ts-ink:var(--primary-text-color,#243139);--ts-accent:var(--primary-color,#007c8c);
+    color:var(--ts-ink);overflow:hidden;
+  }
+  * {box-sizing:border-box}
+  .body {padding:16px 18px 18px}
+  header {display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 12px;margin-bottom:12px}
+  h2 {margin:0;font-size:1.2rem;font-weight:650;line-height:1.3;letter-spacing:-.01em}
+  .date {font-size:.82rem;color:var(--ts-muted)}
+  .status {display:flex;align-items:center;gap:8px;font-size:.92rem;font-weight:600;margin:0 0 10px}
+  .status span {width:9px;height:9px;border-radius:50%;background:var(--ts-nautical);flex:none}
+  .status.sun span {background:var(--ts-sun)}
+  dl {margin:9px 0 0}
+  .row {display:flex;justify-content:space-between;align-items:baseline;gap:5px 12px;padding:7px 0;border-bottom:1px solid var(--ts-line);font-size:.85rem}
+  .row:last-child {border:0}
+  .row dt {color:var(--ts-muted)}
+  .row dd {margin:0;font-weight:550;text-align:end;font-variant-numeric:tabular-nums}
+  details {margin-top:10px;border-top:1px solid var(--ts-line);font-size:.84rem}
+  summary {cursor:pointer;padding:10px 0 2px;color:var(--ts-muted)}
+  .statusbox {font-size:.9rem;color:var(--ts-muted);min-height:38px;margin:7px 0}
+  button, input, select {font:inherit;color:inherit}
+  button, input, select {border:1px solid var(--ts-line);border-radius:7px;background:var(--card-background-color,var(--ha-card-background,#fff));padding:5px 9px;min-height:33px}
+  button {cursor:pointer}
+  button:disabled {opacity:.4;cursor:default}
+  button[aria-pressed="true"] {color:var(--ts-accent);border-color:var(--ts-accent);font-weight:625}
+  :focus-visible {outline:2px solid var(--ts-accent);outline-offset:2px}
+  .controls {display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.82rem;margin:0 0 9px}
+  .controls .spacer {flex:1}
+  .controls label {display:flex;align-items:center;gap:5px}
+  .year-plot, .horizon-plot {width:100%;display:block;overflow:visible}
+  .year-plot {aspect-ratio:620/242}
+  .horizon-plot {aspect-ratio:620/215}
+  .axis {fill:var(--ts-muted);font:13px system-ui,sans-serif}
+  .grid {stroke:var(--ts-line);stroke-width:1;vector-effect:non-scaling-stroke}
+  .year-plot .hit {touch-action:pan-y;cursor:crosshair;fill:transparent}
+  .solstice {stroke:#fff;stroke-dasharray:3 4;opacity:.55;vector-effect:non-scaling-stroke}
+  .cursor {stroke:#fff;stroke-width:1.8;vector-effect:non-scaling-stroke;filter:drop-shadow(1px 0 #233942)}
+  .sun-line {stroke:var(--ts-sun);stroke-width:2.5;fill:none;vector-effect:non-scaling-stroke}
+  .shade-line {stroke:var(--ts-nautical);stroke-width:1.7;stroke-dasharray:4 3;fill:none;vector-effect:non-scaling-stroke}
+  .terrain-fill {fill:var(--ts-civil);opacity:.24}
+  .terrain-line {stroke:var(--ts-nautical);stroke-width:1.6;fill:none;vector-effect:non-scaling-stroke}
+  .strip {position:relative;margin-top:9px;height:22px;border-radius:5px;overflow:hidden;background:var(--ts-night)}
+  .strip span {position:absolute;height:100%;top:0;display:block}
+  .strip i {position:absolute;width:2px;height:100%;background:#fff;box-shadow:0 0 0 1px #21364190}
+  .strip-labels {display:flex;justify-content:space-between;color:var(--ts-muted);font-size:.69rem;margin:3px 0 1px;font-variant-numeric:tabular-nums}
+  .legend {display:flex;flex-wrap:wrap;column-gap:12px;row-gap:5px;margin:8px 0;color:var(--ts-muted);font-size:.74rem}
+  .legend span {display:inline-flex;align-items:center;gap:5px}
+  .legend i {display:inline-block;width:9px;height:9px;border-radius:2px}
+  .day {margin-top:12px;border-top:1px solid var(--ts-line);padding-top:10px}
+  .day .controls {margin:0}
+  .day label {font-weight:600}
+  .tone-direct {fill:var(--ts-sun);background:var(--ts-sun)}
+  .tone-daylight {fill:var(--ts-day);background:var(--ts-day)}
+  .tone-civil {fill:var(--ts-civil);background:var(--ts-civil)}
+  .tone-nautical {fill:var(--ts-nautical);background:var(--ts-nautical)}
+  .tone-astronomical {fill:var(--ts-astronomical);background:var(--ts-astronomical)}
+  .tone-night {fill:var(--ts-night);background:var(--ts-night)}
+  @container (max-width:470px) { .axis {font-size:18px} }
+  @container (max-width:360px) { .body {padding-inline:12px} }
+`;
+
+const phaseOrder = ["night", "astronomical", "nautical", "civil", "daylight"];
+const legendOrder = ["direct", "daylight", "civil", "nautical", "astronomical", "night"];
+const f = value => Number(value).toFixed(2);
+const row = (label, value) => `<div class="row"><dt>${label}</dt><dd>${value}</dd></div>`;
+const toggler = (action, label, selected) =>
+  `<button type="button" data-action="${action}" aria-pressed="${selected}">${label}</button>`;
+const tone = (phase, direct) => direct ? "direct" : phase;
+const normalize = value => ((value % 360) + 360) % 360;
+const escape = value => String(value).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+function request(hass, view, options = {}) {
+  return hass.callWS({ type: "terrain_sun/data", view, ...options });
+}
+
+class SolarCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+    this.shadowRoot.addEventListener("click", event => this.handleClick(event));
+    this.shadowRoot.addEventListener("change", event => this.handleChange(event));
+  }
+
+  setConfig(config) {
+    this.config = config;
+    this.draw();
+  }
+
+  set hass(hass) {
+    const changed = this._hass?.connection !== hass.connection;
+    this._hass = hass;
+    const locale = hass.locale?.language ?? hass.language ?? "en";
+    this.lang = /^(nb|nn|no)(-|$)/i.test(locale) ? "no" : "en";
+    if (this.isConnected && (changed || !this.data) && !this.pending && !this.error) this.refresh();
+  }
+
+  get l() { return WORDS[this.lang ?? "en"]; }
+
+  connectedCallback() {
+    this.draw();
+    this.refresh();
+  }
+
+  disconnectedCallback() {
+    clearInterval(this.timer);
+    this.timer = undefined;
+  }
+
+  handleClick(event) {
+    if (event.target.dataset.action === "retry") this.refresh();
+  }
+
+  handleChange() {}
+
+  async load() {}
+
+  async refresh() {
+    if (!this._hass || this.pending) return;
+    this.pending = true;
+    this.error = false;
+    this.draw();
+    try {
+      await this.load();
+    } catch (error) {
+      this.error = true;
+    } finally {
+      this.pending = false;
+      this.draw();
+    }
+  }
+
+  get title() {
+    return escape(this.config?.title || TYPES[this.localName][this.lang === "no" ? 0 : 1]);
+  }
+
+  formatClock(timestamp, zone, end) {
+    if (timestamp === end) return "24:00";
+    return new Intl.DateTimeFormat(this.lang === "no" ? "nb-NO" : "en-GB", {
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: zone,
+    }).format(timestamp * 1000);
+  }
+
+  formatDate(value) {
+    return new Intl.DateTimeFormat(this.lang === "no" ? "nb-NO" : "en-GB", {
+      day: "numeric", month: "short", timeZone: "UTC",
+    }).format(new Date(value + "T12:00:00Z"));
+  }
+
+  formatDuration(value) {
+    const minutes = Math.round(Math.abs(value) / 60);
+    const prefix = value < 0 && minutes ? "−" : "";
+    const hours = Math.floor(minutes / 60);
+    return hours
+      ? `${prefix}${hours} ${this.l.hour} ${String(minutes % 60).padStart(2, "0")} ${this.l.minute}`
+      : `${prefix}${minutes} ${this.l.minute}`;
+  }
+
+  formatDelta(value) {
+    return (Math.round(value / 60) > 0 ? "+" : "") + this.formatDuration(value);
+  }
+
+  formatPeriods(periods, day, zone) {
+    return periods.map(([start, end]) =>
+      `${this.formatClock(start, zone)}–${this.formatClock(end, zone, day.end)}`).join(" · ") || "—";
+  }
+
+  legend(daylightLabel = this.l.terrain_shade) {
+    return `<div class="legend">${legendOrder.map(key =>
+      `<span><i class="tone-${key}"></i>${key === "daylight" ? daylightLabel : this.l[key]}</span>`).join("")}</div>`;
+  }
+
+  timeline(day, zone, now = null) {
+    const duration = day.end - day.start;
+    if (!duration) return "";
+    const spans = day.bands.map(([start, end, phase, direct]) =>
+      `<span class="tone-${tone(phase, direct)}" style="left:${f((start - day.start) / duration * 100)}%;width:${f((end - start) / duration * 100)}%" title="${escape(direct ? this.l.direct : this.l[phase === "daylight" ? "terrain_shade" : phase])} ${this.formatClock(start, zone)}–${this.formatClock(end, zone, day.end)}"></span>`).join("");
+    const marker = now >= day.start && now < day.end
+      ? `<i style="left:${f((now - day.start) / duration * 100)}%"></i>` : "";
+    const labels = [0, .25, .5, .75, 1].map(fraction =>
+      `<span>${this.formatClock(day.start + duration * fraction, zone, day.end)}</span>`).join("");
+    return `<div class="strip" aria-label="${this.l.dayTrack}">${spans}${marker}</div><div class="strip-labels">${labels}</div>`;
+  }
+
+  draw() {
+    if (!this.isConnected || !this.config) return;
+    const content = this.error
+      ? `<p class="statusbox">${this.l.unavailable}</p><button data-action="retry">${this.l.retry}</button>`
+      : this.data ? this.renderData() : `<p class="statusbox">${this.l.loading}</p>`;
+    this.shadowRoot.innerHTML = `<style>${STYLES}</style><ha-card><div class="body">${content}</div></ha-card>`;
+  }
+}
+
+class LiveCard extends SolarCard {
+  connectedCallback() {
+    super.connectedCallback();
+    this.timer = setInterval(() => this.refresh(), 60000);
+  }
+
+  async load() {
+    this.data = await request(this._hass, this.view);
+  }
+}
+
+class TodayCard extends LiveCard {
+  get view() { return "now"; }
+  getCardSize() { return 5; }
+
+  renderData() {
+    const { day, direct, next, zone, time, yesterday_delta, tomorrow_delta } = this.data;
+    const opened = this.shadowRoot.querySelector("details")?.open;
+    const nextDate = next ? new Intl.DateTimeFormat("en-CA", {
+      dateStyle: "short", timeZone: zone,
+    }).format(next * 1000) : null;
+    const todayDate = new Intl.DateTimeFormat("en-CA", {
+      dateStyle: "short", timeZone: zone,
+    }).format(time * 1000);
+    const nextLabel = next
+      ? (nextDate === todayDate ? "" : this.formatDate(new Intl.DateTimeFormat("sv-SE", {
+        dateStyle: "short", timeZone: zone,
+      }).format(next * 1000)) + " · ") + this.formatClock(next, zone)
+      : this.l.noChange;
+    return `
+      <header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+      <p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
+      ${this.timeline(day, zone, time)}
+      <dl>
+        ${row(direct ? this.l.nextShade : this.l.nextSun, nextLabel)}
+        ${row(this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, zone) : this.l.noSun)}
+        ${row(this.l.direct, this.formatDuration(day.totals.direct))}
+        ${row(this.l.daylight, this.formatDuration(day.totals.daylight))}
+        ${row(this.l.fromYesterday, this.formatDelta(yesterday_delta))}
+      </dl>
+      <details ${opened ? "open" : ""}><summary>${this.l.phases}</summary>
+        <dl>${phaseOrder.map(phase => {
+          const periods = [];
+          for (const [start, end, name] of day.bands) {
+            if (name !== phase) continue;
+            if (periods.at(-1)?.[1] === start) periods.at(-1)[1] = end;
+            else periods.push([start, end]);
+          }
+          return row(this.l[phase === "daylight" ? "daylight_phase" : phase], this.formatPeriods(periods, day, zone));
+        }).join("")}
+        ${row(this.l.golden, this.formatPeriods(day.golden, day, zone))}
+        ${row(this.l.toTomorrow, this.formatDelta(tomorrow_delta))}
+        </dl>
+      </details>`;
+  }
+}
+
+function horizonElevation(profile, azimuth) {
+  azimuth = normalize(azimuth);
+  const index = profile.findIndex(point => point[0] > azimuth);
+  const [left, right] = [profile[index - 1], profile[index]];
+  return left[1] + (right[1] - left[1]) * (azimuth - left[0]) / (right[0] - left[0]);
+}
+
+class HorizonCard extends LiveCard {
+  get view() { return "horizon"; }
+  getCardSize() { return 5; }
+
+  handleClick(event) {
+    if (["area", "circle"].includes(event.target.dataset.action)) {
+      this.full = event.target.dataset.action === "circle";
+      this.draw();
+    } else super.handleClick(event);
+  }
+
+  chart() {
+    const { day, profile, azimuth, upper_limb, direct } = this.data;
+    const left = 39, right = 606, top = 12, bottom = 183;
+    const summit = day.path.reduce((best, item) => item[2] > best[2] ? item : best);
+    const center = summit[1];
+    const unwrap = angle => center + normalize(angle - center + 180) - 180;
+    const active = day.path.filter(point => point[2] >= Math.min(-4, summit[2] - 1));
+    const activeAz = active.map(point => unwrap(point[1]));
+    const zoomMin = Math.floor((Math.min(...activeAz) - 18) / 30) * 30;
+    const zoomMax = Math.ceil((Math.max(...activeAz) + 18) / 30) * 30;
+    const full = this.full || zoomMax - zoomMin >= 360;
+    const [start, stop] = full ? [0, 360] : [zoomMin, zoomMax];
+    const profileArc = [[start, horizonElevation(profile, start)]];
+    for (const [angle, height] of profile) {
+      if (angle === 360) continue;
+      for (const shift of [-360, 0, 360, 720]) {
+        if (angle + shift > start && angle + shift < stop) profileArc.push([angle + shift, height]);
+      }
+    }
+    profileArc.push([stop, horizonElevation(profile, stop)]);
+    profileArc.sort((a, b) => a[0] - b[0]);
+    const profileHeights = profileArc.map(point => point[1]);
+    const low = Math.min(-8, Math.floor((Math.min(...profileHeights) - 2) / 5) * 5);
+    const high = Math.max(10, Math.ceil((Math.max(summit[2], ...profileHeights) + 2) / 5) * 5);
+    const x = angle => left + (angle - start) / (stop - start) * (right - left);
+    const y = altitude => bottom - (altitude - low) / (high - low) * (bottom - top);
+    const line = profileArc.map(([az, ele], index) => `${index ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
+    const grid = [];
+    const verticalStep = high - low > 45 ? 20 : 10;
+    for (let height = Math.ceil(low / verticalStep) * verticalStep; height <= high; height += verticalStep) {
+      grid.push(`<path class="grid" d="M${left},${f(y(height))}H${right}"/><text class="axis" x="${left - 6}" y="${f(y(height) + 4)}" text-anchor="end">${height}°</text>`);
+    }
+    const horizontalStep = stop - start >= 240 ? 60 : 30;
+    for (let angle = Math.ceil(start / horizontalStep) * horizontalStep; angle <= stop; angle += horizontalStep) {
+      const cardinal = normalize(angle) % 90 === 0 ? this.l.directions[normalize(angle) / 90] : "";
+      const label = cardinal || `${normalize(angle)}°`;
+      grid.push(`<path class="grid" d="M${f(x(angle))},${top}V${bottom}"/><text class="axis" x="${f(x(angle))}" y="${bottom + 21}" text-anchor="middle">${label}</text>`);
+    }
+    const paths = { sun: [], shade: [] };
+    for (let i = 1; i < day.path.length; i++) {
+      const [aTime, aRaw, aEle] = day.path[i - 1];
+      const [bTime, bRaw, bEle] = day.path[i];
+      const [a, b] = full ? [aRaw, bRaw] : [unwrap(aRaw), unwrap(bRaw)];
+      if (Math.abs(a - b) > 180 || (aEle < low && bEle < low)) continue;
+      const middle = (aTime + bTime) / 2;
+      const shown = day.direct.some(([from, to]) => from <= middle && middle < to);
+      paths[shown ? "sun" : "shade"].push(`M${f(x(a))},${f(y(aEle))}L${f(x(b))},${f(y(bEle))}`);
+    }
+    const now = full ? azimuth : unwrap(azimuth);
+    const sunMarker = now >= start && now <= stop && upper_limb >= low
+      ? `<circle cx="${f(x(now))}" cy="${f(y(upper_limb))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
+    return `<svg class="horizon-plot" viewBox="0 0 620 215" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}">
+      <defs><clipPath id="horizon-clip"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
+      ${grid.join("")}
+      <g clip-path="url(#horizon-clip)">
+        <path class="terrain-fill" d="${line}V${bottom}H${left}Z"/>
+        <path class="terrain-line" d="${line}"/>
+        <path class="shade-line" d="${paths.shade.join("")}"/>
+        <path class="sun-line" d="${paths.sun.join("")}"/>
+        ${sunMarker}
+      </g>
+    </svg>`;
+  }
+
+  renderData() {
+    const { direct, day, upper_limb, azimuth, terrain } = this.data;
+    const degrees = value => new Intl.NumberFormat(this.lang === "no" ? "nb-NO" : "en",
+      { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value) + "°";
+    return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+      <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}</div>
+      ${this.chart()}
+      <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span></div>
+      <p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
+      <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>`;
+  }
+}
+
+class YearCard extends SolarCard {
+  mode = "clock";
+  evening = "20:00";
+  getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
+  getCardSize() { return 8; }
+
+  async load() {
+    this.data = await request(this._hass, "year", this.year ? { year: this.year } : {});
+    this.year = this.data.year;
+    this.zone = this.data.zone;
+    const today = new Intl.DateTimeFormat("sv-SE", {
+      dateStyle: "short", timeZone: this.zone,
+    }).format(Date.now());
+    this.today = today;
+    this.index = Math.max(0, this.data.days.findIndex(day => day.date === today));
+  }
+
+  handleClick(event) {
+    const action = event.target.dataset.action;
+    if (action === "clock" || action === "duration") {
+      this.mode = action;
+      this.draw();
+      this.shadowRoot.querySelector(`[data-action="${action}"]`)?.focus();
+    } else if (action === "prev" || action === "next") {
+      this.select(this.index + (action === "prev" ? -1 : 1));
+      this.shadowRoot.querySelector(`[data-action="${action}"]`)?.focus();
+    } else if (action === "today") {
+      this.select(this.data.days.findIndex(day => day.date === this.today));
+    } else if (action === "day-plot") {
+      const plot = event.target.getBoundingClientRect();
+      if (plot.width) this.select(Math.floor((event.clientX - plot.left) / plot.width * this.data.days.length));
+    } else super.handleClick(event);
+  }
+
+  handleChange(event) {
+    if (event.target.dataset.field === "year") {
+      this.year = Number(event.target.value);
+      this.data = null;
+      this.refresh();
+    } else if (event.target.dataset.field === "evening") {
+      if (event.target.value) this.evening = event.target.value;
+      this.draw();
+      this.shadowRoot.querySelector('[data-field="evening"]')?.focus();
+    } else if (event.target.dataset.field === "day") {
+      const selected = this.data.days.findIndex(day => day.date === event.target.value);
+      if (selected !== -1) this.select(selected);
+    }
+  }
+
+  select(index) {
+    this.index = Math.max(0, Math.min(this.data.days.length - 1, index));
+    this.draw();
+  }
+
+  chart() {
+    const { days } = this.data;
+    const left = 39, right = 606, top = 10, bottom = 207;
+    const width = (right - left) / days.length;
+    const max = this.mode === "duration"
+      ? Math.max(86400, ...days.map(day => day.end - day.start)) : 86400;
+    const y = seconds => bottom - seconds / max * (bottom - top);
+    const paths = Object.fromEntries(legendOrder.map(key => [key, []]));
+    const section = (index, begin, end, color) => {
+      if (end <= begin) return;
+      const x1 = f(left + index * width), x2 = f(left + (index + 1) * width);
+      const y1 = f(y(begin)), y2 = f(y(end));
+      paths[color].push(`M${x1},${y1}H${x2}V${y2}H${x1}Z`);
+    };
+    days.forEach((day, index) => {
+      if (this.mode === "clock") {
+        for (const [,, phase, direct, clockStart, clockEnd] of day.bands) {
+          section(index, clockStart, clockEnd, tone(phase, direct));
+        }
+      } else {
+        const sums = Object.fromEntries(legendOrder.map(phase => [phase, 0]));
+        for (const [start, end, phase, direct] of day.bands) sums[tone(phase, direct)] += end - start;
+        let baseline = 0;
+        for (const key of [...phaseOrder, "direct"]) {
+          section(index, baseline, baseline + sums[key], key);
+          baseline += sums[key];
+        }
+      }
+    });
+    const grids = [];
+    for (let hour = 0; hour <= 24; hour += 4) {
+      const v = f(y(hour * 3600));
+      grids.push(`<path class="grid" d="M${left},${v}H${right}"/><text class="axis" x="${left - 6}" y="${Number(v) + 4}" text-anchor="end">${String(hour).padStart(2, "0")}</text>`);
+    }
+    const months = [];
+    const useEveryMonth = (this.getBoundingClientRect().width || 600) >= 490;
+    days.forEach((day, index) => {
+      const month = Number(day.date.slice(5, 7));
+      if (!day.date.endsWith("-01") || (!useEveryMonth && month % 2 === 0)) return;
+      const label = new Intl.DateTimeFormat(this.lang === "no" ? "nb-NO" : "en-GB", {
+        month: "short", timeZone: "UTC",
+      }).format(new Date(day.date + "T12:00:00Z"));
+      months.push(`<text class="axis" x="${f(left + index * width + 2)}" y="227">${escape(label)}</text>`);
+    });
+    const solstices = this.data.solstices.map(event => {
+      const index = days.findIndex(day => day.date === event.date);
+      const mark = f(left + (index + .5) * width);
+      return `<path class="solstice" d="M${mark},${top}V${bottom}"/>`;
+    });
+    const cursor = f(left + (this.index + .5) * width);
+    return `<svg class="year-plot" viewBox="0 0 620 242" aria-label="${this.l.graph}">
+      ${grids.join("")}
+      ${legendOrder.slice().reverse().map(key => `<path class="tone-${key}" d="${paths[key].join("")}"/>`).join("")}
+      ${solstices.join("")}
+      <path class="cursor" d="M${cursor},${top}V${bottom}"/>
+      ${months.join("")}
+      <rect class="hit" x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" data-action="day-plot"/>
+    </svg>`;
+  }
+
+  renderData() {
+    const { days } = this.data;
+    const day = days[this.index];
+    const [hour, minute] = this.evening.split(":").map(Number);
+    const time = hour * 3600 + minute * 60;
+    const lastEvening = days.findLast(item => item.bands.some(
+      ([,,, direct, start, end]) => direct && start <= time && time < end));
+    const opened = this.shadowRoot.querySelector("details")?.open;
+    const currentYear = Number(this.today.slice(0, 4));
+    const yearOptions = [currentYear - 1, currentYear, currentYear + 1]
+      .map(year => `<option ${year === this.year ? "selected" : ""}>${year}</option>`).join("");
+    return `<header><h2>${this.title}</h2></header>
+      <div class="controls">
+        ${toggler("clock", this.l.clock, this.mode === "clock")}
+        ${toggler("duration", this.l.duration, this.mode === "duration")}
+        <span class="spacer"></span><label>${this.l.year} <select data-field="year">${yearOptions}</select></label>
+      </div>
+      ${this.chart()}
+      ${this.legend()}
+      <div class="day">
+        <div class="controls">
+          <button type="button" data-action="prev" aria-label="${this.l.prev}" ${this.index === 0 ? "disabled" : ""}>‹</button>
+          <label><input type="date" data-field="day" aria-label="${this.l.date}" value="${day.date}" min="${days[0].date}" max="${days.at(-1).date}"></label>
+          <button type="button" data-action="next" aria-label="${this.l.next}" ${this.index === days.length - 1 ? "disabled" : ""}>›</button>
+          ${currentYear === this.year ? `<button type="button" data-action="today">${this.l.today}</button>` : ""}
+        </div>
+        ${this.timeline(day, this.zone, Date.now() / 1000)}
+        <dl>
+          ${row(this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, this.zone) : this.l.noSun)}
+          ${row(this.l.direct, this.formatDuration(day.totals.direct))}
+          ${row(this.l.terrain_shade, this.formatDuration(day.totals.terrain_shade))}
+          ${row(this.l.daylight, this.formatDuration(day.totals.daylight))}
+        </dl>
+      </div>
+      <details ${opened ? "open" : ""}><summary>${this.l.seasons}</summary>
+        <dl>${this.data.solstices.map(event => row(
+          this.l[event.month === "6" ? "june" : "december"], this.formatDate(event.date))).join("")}
+        ${row(this.l.evening, `<input type="time" data-field="evening" aria-label="${this.l.evening}" value="${this.evening}">`)}
+        ${row(this.l.lastEvening, lastEvening ? this.formatDate(lastEvening.date) : "—")}
+        </dl>
+      </details>`;
+  }
+}
+
+const CARDS = Object.entries({
+  "terrain-sun-today": TodayCard, "terrain-sun-horizon": HorizonCard, "terrain-sun-year": YearCard,
+});
+window.customCards ??= [];
+for (const [type, component] of CARDS) {
+  component.getStubConfig = () => ({ type: `custom:${type}` });
+  if (!customElements.get(type)) customElements.define(type, component);
+  if (!window.customCards.some(card => card.type === type)) {
+    const [no, en] = TYPES[type];
+    window.customCards.push({ type, name: `Terrain Sun · ${en}`, description: no, preview: true });
+  }
+}
