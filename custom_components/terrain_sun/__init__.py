@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import probatio as vol
 from homeassistant.components import lovelace, websocket_api
+from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
@@ -171,23 +172,33 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def _async_register_resource(hass: HomeAssistant, version: str) -> None:
     """Register once, updating only our own resource when the version changes."""
     resources = hass.data[lovelace.LOVELACE_DATA].resources
+    url = f"{RESOURCE}?v={version}"
     if not isinstance(resources, ResourceStorageCollection):
-        _LOGGER.info(
-            "Dashboard resources are YAML-managed; use the resource URL in the README"
+        # YAML resources are read-only. Use the frontend's module hook unless
+        # the user already listed our module in configuration.yaml.
+        configured_module = any(
+            _is_card_resource(item) and item["type"] == "module"
+            for item in resources.async_items()
         )
+        if not configured_module and "extra_module_url" not in hass.data[DOMAIN]:
+            add_extra_js_url(hass, url)
+            hass.data[DOMAIN]["extra_module_url"] = url
         return
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
-    url = f"{RESOURCE}?v={version}"
     for item in resources.async_items():
-        if item["url"].split("?", 1)[0] == RESOURCE:
+        if _is_card_resource(item):
             if item["url"] != url or item["type"] != "module":
                 await resources.async_update_item(
                     item["id"], {"url": url, "res_type": "module"}
                 )
             return
     await resources.async_create_item({"url": url, "res_type": "module"})
+
+
+def _is_card_resource(item: dict) -> bool:
+    return item["url"].partition("?")[0] == RESOURCE
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> bool:
@@ -224,6 +235,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> 
         for other in hass.config_entries.async_entries(DOMAIN)
     ):
         return
+    if url := hass.data[DOMAIN].pop("extra_module_url", None):
+        remove_extra_js_url(hass, url)
     resources = hass.data[lovelace.LOVELACE_DATA].resources
     if not isinstance(resources, ResourceStorageCollection):
         return
@@ -231,5 +244,5 @@ async def async_remove_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> 
         await resources.async_load()
         resources.loaded = True
     for item in resources.async_items():
-        if item["url"].split("?", 1)[0] == RESOURCE:
+        if _is_card_resource(item):
             await resources.async_delete_item(item["id"])

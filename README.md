@@ -9,7 +9,7 @@ Krever Home Assistant **2026.11.2** eller nyere.
 1. Åpne **Innstillinger → Marketplace → Legg til fra lenke**. Koble til GitHub hvis Home Assistant ber om det.
 2. Legg til `https://github.com/stboee/ha-terrain-sun` og installer **Terrain Sun**.
 3. Legg til **Terrain Sun** under **Innstillinger → Enheter og tjenester**. Velg `horizon.txt` fra PeakFinder (**Export → Horizon for Stellarium**).
-4. Rediger dashboardet og legg til kortene fra kortvelgeren. Søk etter **Terrain Sun**. Siden oppsettet registrerer dashboardressursen, kan nettleserfanen trenge en oppdatering første gang.
+4. Last inn Home Assistant-fanen på nytt etter oppsettet. Rediger dashboardet, åpne **Legg til kort → Etter kort** og søk etter **Terrain Sun**.
 
 For en første gjennomgang kan du bruke [eksempelprofilen](examples/horizon.txt). Den er konstruert og bruker plasseringen fra Home Assistant. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Begge bruker tidssonen fra Home Assistant. For å bytte profil velger du **Konfigurer på nytt** på integrasjonen og laster opp en ny fil.
 
@@ -23,7 +23,7 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 | **Lokal horisont** | Terreng og solbane i grader, vist som dagsutsnitt eller 360°. Gull markerer den synlige delen av solbanen. | `custom:terrain-sun-horizon` |
 | **Solåret** | Samme årsgraf i klokkeslett- og varighetsvisning, med en velgbar dato, kronologisk døgnstripe, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
 
-Kort kan også legges til med typen i tabellen. Hvis selve listen over dashboardressurser styres med YAML, legg til `/terrain_sun/terrain-sun.js` med type `module` i ressurslisten. Ved en versjonsoppdatering kan du laste nettleserfanen på nytt. I vanlig lagringsmodus registreres og versjoneres ressursen automatisk.
+Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du inn Home Assistant-fanen på nytt. Integrasjonen registrerer kortfilen automatisk, også når dashboardressurser styres fra YAML. En eksisterende YAML-oppføring med `/terrain_sun/terrain-sun.js` og typen `module` kan brukes videre.
 
 ## Entiteter og beregninger
 

@@ -111,6 +111,9 @@ const toggler = (action, label, selected) =>
   `<button type="button" data-action="${action}" aria-pressed="${selected}">${label}</button>`;
 const tone = (phase, direct) => direct ? "direct" : phase;
 const normalize = value => ((value % 360) + 360) % 360;
+const isNorwegian = language => /^(nb|nn|no)(-|$)/i.test(language);
+const pickerLanguage = () =>
+  document.querySelector("home-assistant")?.hass?.locale?.language ?? navigator.language;
 const escape = value => String(value).replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -119,6 +122,13 @@ function request(hass, view, options = {}) {
 }
 
 class SolarCard extends HTMLElement {
+  static getConfigForm() {
+    return {
+      schema: [{ name: "title", selector: { text: {} } }],
+      computeLabel: () => isNorwegian(pickerLanguage()) ? "Tittel" : "Title",
+    };
+  }
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -135,7 +145,7 @@ class SolarCard extends HTMLElement {
     const changed = this._hass?.connection !== hass.connection;
     this._hass = hass;
     const locale = hass.locale?.language ?? hass.language ?? "en";
-    this.lang = /^(nb|nn|no)(-|$)/i.test(locale) ? "no" : "en";
+    this.lang = isNorwegian(locale) ? "no" : "en";
     if (this.isConnected && (changed || !this.data) && !this.pending && !this.error) this.refresh();
   }
 
@@ -550,10 +560,15 @@ const CARDS = Object.entries({
 });
 window.customCards ??= [];
 for (const [type, component] of CARDS) {
-  component.getStubConfig = () => ({ type: `custom:${type}` });
   if (!customElements.get(type)) customElements.define(type, component);
   if (!window.customCards.some(card => card.type === type)) {
-    const [no, en] = TYPES[type];
-    window.customCards.push({ type, name: `Terrain Sun · ${en}`, description: no, preview: true });
+    window.customCards.push({
+      type,
+      get name() {
+        return `Terrain Sun · ${TYPES[type][isNorwegian(pickerLanguage()) ? 0 : 1]}`;
+      },
+      preview: true,
+      documentationURL: "https://github.com/stboee/ha-terrain-sun#kort",
+    });
   }
 }

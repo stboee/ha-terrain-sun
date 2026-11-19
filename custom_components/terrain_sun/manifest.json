@@ -3,11 +3,11 @@
   "name": "Terrain Sun",
   "codeowners": ["@stboee"],
   "config_flow": true,
-  "dependencies": ["file_upload", "lovelace"],
+  "dependencies": ["file_upload", "frontend", "lovelace"],
   "documentation": "https://github.com/stboee/ha-terrain-sun",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/stboee/ha-terrain-sun/issues",
   "single_config_entry": true,
-  "version": "2026.11.19"
+  "version": "2026.11.19.1"
 }
