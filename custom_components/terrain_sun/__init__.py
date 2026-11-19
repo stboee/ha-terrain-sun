@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
-from .engine import Horizon, SolarModel, next_boundary
+from .engine import Horizon, SolarModel, next_boundary, next_matching_day
 
 DOMAIN = "terrain_sun"
 PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR)
@@ -84,17 +84,41 @@ class TerrainRuntime(DataUpdateCoordinator[dict]):
     async def _async_update_data(self) -> dict:
         return await self.async_current()
 
-    async def async_current(self) -> dict:
-        now = datetime.now(UTC)
+    async def async_matching_day(self, reference_date: date) -> dict | None:
+        year = await self.async_year(reference_date.year)
+        days = year["days"]
+        reference = days[(reference_date - date(reference_date.year, 1, 1)).days]
+        following_year = reference_date.year + 1
+        solstices = year["solstices"] + self.model.solstices(following_year)
+        turn, following_turn, *_ = (
+            event["date"] for event in solstices if event["date"] > reference["date"]
+        )
+        turns = turn, following_turn
+        no_sun = reference["totals"]["direct"] == 0
+        if not no_sun and date.fromisoformat(following_turn).year == following_year:
+            upcoming = await self.async_year(following_year)
+            days = days + upcoming["days"]
+        match = next_matching_day(days, reference, turns)
+        if match is None and no_sun:
+            upcoming = await self.async_year(following_year)
+            match = next_matching_day(days + upcoming["days"], reference, turns)
+        if match is None:
+            return None
+        return {"date": match["date"], "duration": match["totals"]["direct"]}
+
+    async def async_current(self, now: datetime | None = None) -> dict:
+        now = now or datetime.now(UTC)
         today = now.astimezone(self.model.zone).date()
-        yesterday, day, tomorrow = await asyncio.gather(
-            self._async_day(today - timedelta(days=1)),
-            self._async_day(today),
-            self._async_day(today + timedelta(days=1)),
+        last_week, yesterday, day, tomorrow, next_week = await asyncio.gather(
+            *(
+                self._async_day(today + timedelta(days=offset))
+                for offset in (-7, -1, 0, 1, 7)
+            )
         )
         stamp = now.timestamp()
         pos = self.model.position(stamp)
         terrain = self.model.horizon.at(pos.azimuth)
+        direct_seconds = day["totals"]["direct"]
         return {
             "time": int(stamp),
             "zone": self.model.zone.key,
@@ -105,8 +129,10 @@ class TerrainRuntime(DataUpdateCoordinator[dict]):
             "terrain": terrain,
             "direct": pos.upper_limb >= terrain,
             "next": next_boundary(day, tomorrow, stamp),
-            "yesterday_delta": day["totals"]["direct"] - yesterday["totals"]["direct"],
-            "tomorrow_delta": tomorrow["totals"]["direct"] - day["totals"]["direct"],
+            "yesterday_delta": direct_seconds - yesterday["totals"]["direct"],
+            "tomorrow_delta": tomorrow["totals"]["direct"] - direct_seconds,
+            "last_week_delta": direct_seconds - last_week["totals"]["direct"],
+            "next_week_delta": next_week["totals"]["direct"] - direct_seconds,
         }
 
 
@@ -116,7 +142,7 @@ type TerrainConfigEntry = ConfigEntry[TerrainRuntime]
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "terrain_sun/data",
-        vol.Required("view"): vol.In(("now", "horizon", "day", "year")),
+        vol.Required("view"): vol.In(("now", "horizon", "day", "year", "similar_sun")),
         vol.Optional("date"): str,
         vol.Optional("year"): int,
     }
@@ -130,7 +156,8 @@ async def _async_get_data(hass, connection, message):
         )
         return
     runtime = next(iter(entries.values()))
-    today = datetime.now(runtime.model.zone).date()
+    now = datetime.now(UTC)
+    today = now.astimezone(runtime.model.zone).date()
     view = message["view"]
     try:
         if view == "year":
@@ -138,20 +165,32 @@ async def _async_get_data(hass, connection, message):
             if abs(year - today.year) > 5:
                 raise ValueError("Year is outside the allowed range")
             result = await runtime.async_year(year)
-        elif view == "day":
+        elif view in ("day", "horizon", "similar_sun"):
             day = date.fromisoformat(message.get("date", today.isoformat()))
             if abs(day.year - today.year) > 5:
                 raise ValueError("Date is outside the allowed range")
-            result = await runtime._async_day(day)
-        else:
-            result = await runtime.async_current()
-            if view == "horizon":
+            if view == "day":
+                result = await runtime._async_day(day)
+            elif view == "similar_sun":
+                result = await runtime.async_matching_day(day)
+            else:
+                result = (
+                    await runtime.async_current(now)
+                    if day == today
+                    else {
+                        "day": await runtime._async_day(day),
+                        "zone": runtime.model.zone.key,
+                    }
+                )
+                result["today"] = today.isoformat()
                 profile = runtime.model.horizon
                 result["profile"] = [
                     [0, profile.at(0)],
                     *zip(profile.bearings, profile.elevations),
                     [360, profile.at(0)],
                 ]
+        else:
+            result = await runtime.async_current(now)
     except ValueError as err:
         connection.send_error(message["id"], "invalid_request", str(err))
         return

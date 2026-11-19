@@ -12,6 +12,9 @@ const WORDS = {
     nextSun: "Neste direkte sol", nextShade: "Sola forsvinner", noChange: "Ingen overgang innen i morgen",
     noSun: "Ingen direkte sol", sunNow: "Direkte sol nå", behind: "Sola er under terrenghorisonten",
     periods: "Solperioder", phases: "Lysfaser", fromYesterday: "Endring fra i går", toTomorrow: "Endring til i morgen",
+    lastWeek: "Endring siste 7 dager", nextWeek: "Endring neste 7 dager",
+    similarSun: "Neste gang det er så lyst", noMatch: "Ingen tilsvarende dato funnet",
+    noSunFound: "Ingen dato med direkte sol funnet", lookupFailed: "Kunne ikke beregne datoen",
     seasons: "Solhverv og kveldssol", june: "Junisolverv", december: "Desembersolverv",
     evening: "Klokkeslett for kveldssol", lastEvening: "Siste dato med direkte sol på dette klokkeslettet",
     elevation: "Øvre solrand", terrain: "Terrenghøyde", bearing: "Azimut", profile: "Terrengprofil",
@@ -27,6 +30,9 @@ const WORDS = {
     nextSun: "Next direct sun", nextShade: "Sun drops below terrain", noChange: "No transition through tomorrow",
     noSun: "No direct sun", sunNow: "Direct sun now", behind: "Sun is below the terrain horizon",
     periods: "Sun periods", phases: "Light phases", fromYesterday: "Change since yesterday", toTomorrow: "Change by tomorrow",
+    lastWeek: "Change over the past 7 days", nextWeek: "Change over the next 7 days",
+    similarSun: "Next day with this much sun", noMatch: "No matching date found",
+    noSunFound: "No date with direct sun found", lookupFailed: "Could not calculate the date",
     seasons: "Solstices and evening sun", june: "June solstice", december: "December solstice",
     evening: "Evening sun at", lastEvening: "Last date with direct sun at this time",
     elevation: "Upper solar limb", terrain: "Terrain altitude", bearing: "Azimuth", profile: "Terrain profile",
@@ -121,6 +127,12 @@ function request(hass, view, options = {}) {
   return hass.callWS({ type: "terrain_sun/data", view, ...options });
 }
 
+function offsetDate(value, days) {
+  const day = new Date(value + "T12:00:00Z");
+  day.setUTCDate(day.getUTCDate() + days);
+  return day.toISOString().slice(0, 10);
+}
+
 class SolarCard extends HTMLElement {
   static getConfigForm() {
     return {
@@ -195,10 +207,19 @@ class SolarCard extends HTMLElement {
     }).format(timestamp * 1000);
   }
 
-  formatDate(value) {
+  formatDate(value, includeYear = false) {
     return new Intl.DateTimeFormat(this.lang === "no" ? "nb-NO" : "en-GB", {
-      day: "numeric", month: "short", timeZone: "UTC",
+      day: "numeric", month: "short", year: includeYear ? "numeric" : undefined, timeZone: "UTC",
     }).format(new Date(value + "T12:00:00Z"));
+  }
+
+  dateControls(date, min, max, showToday = true) {
+    return `<div class="controls">
+      <button type="button" data-action="prev" aria-label="${this.l.prev}" ${date === min ? "disabled" : ""}>‹</button>
+      <label><input type="date" data-field="day" aria-label="${this.l.date}" value="${date}" min="${min}" max="${max}"></label>
+      <button type="button" data-action="next" aria-label="${this.l.next}" ${date === max ? "disabled" : ""}>›</button>
+      ${showToday ? `<button type="button" data-action="today">${this.l.today}</button>` : ""}
+    </div>`;
   }
 
   formatDuration(value) {
@@ -261,7 +282,7 @@ class TodayCard extends LiveCard {
   getCardSize() { return 5; }
 
   renderData() {
-    const { day, direct, next, zone, time, yesterday_delta, tomorrow_delta } = this.data;
+    const { day, direct, next, zone, time, yesterday_delta, tomorrow_delta, last_week_delta, next_week_delta } = this.data;
     const opened = this.shadowRoot.querySelector("details")?.open;
     const nextDate = next ? new Intl.DateTimeFormat("en-CA", {
       dateStyle: "short", timeZone: zone,
@@ -284,6 +305,9 @@ class TodayCard extends LiveCard {
         ${row(this.l.direct, this.formatDuration(day.totals.direct))}
         ${row(this.l.daylight, this.formatDuration(day.totals.daylight))}
         ${row(this.l.fromYesterday, this.formatDelta(yesterday_delta))}
+        ${row(this.l.toTomorrow, this.formatDelta(tomorrow_delta))}
+        ${row(this.l.lastWeek, this.formatDelta(last_week_delta))}
+        ${row(this.l.nextWeek, this.formatDelta(next_week_delta))}
       </dl>
       <details ${opened ? "open" : ""}><summary>${this.l.phases}</summary>
         <dl>${phaseOrder.map(phase => {
@@ -296,7 +320,6 @@ class TodayCard extends LiveCard {
           return row(this.l[phase === "daylight" ? "daylight_phase" : phase], this.formatPeriods(periods, day, zone));
         }).join("")}
         ${row(this.l.golden, this.formatPeriods(day.golden, day, zone))}
-        ${row(this.l.toTomorrow, this.formatDelta(tomorrow_delta))}
         </dl>
       </details>`;
   }
@@ -312,16 +335,53 @@ function horizonElevation(profile, azimuth) {
 class HorizonCard extends LiveCard {
   get view() { return "horizon"; }
   getCardSize() { return 5; }
+  selectedDate = null;
+
+  async load() {
+    // A date change can arrive while a background refresh is still in flight.
+    let date;
+    do {
+      date = this.selectedDate;
+      try {
+        const data = await request(this._hass, this.view, date ? { date } : {});
+        if (date === this.selectedDate) this.data = data;
+      } catch (error) {
+        if (date === this.selectedDate) throw error;
+      }
+    } while (date !== this.selectedDate);
+  }
+
+  async selectDate(date, action) {
+    const selectedDate = date === this.data.today ? null : date;
+    if (selectedDate === this.selectedDate) return;
+    this.selectedDate = selectedDate;
+    await this.refresh();
+    if (action && selectedDate === this.selectedDate && !this.shadowRoot.activeElement) {
+      this.shadowRoot.querySelector(`[data-action="${action}"]`)?.focus();
+    }
+  }
 
   handleClick(event) {
-    if (["area", "circle"].includes(event.target.dataset.action)) {
-      this.full = event.target.dataset.action === "circle";
+    const { action } = event.target.dataset;
+    if (action === "area" || action === "circle") {
+      this.full = action === "circle";
       this.draw();
+    } else if (action === "prev" || action === "next") {
+      const input = this.shadowRoot.querySelector('[data-field="day"]');
+      const date = offsetDate(this.selectedDate ?? this.data.today, action === "prev" ? -1 : 1);
+      if (date >= input.min && date <= input.max) this.selectDate(date, action);
+    } else if (action === "today") {
+      this.selectDate(this.data.today, action);
     } else super.handleClick(event);
   }
 
+  handleChange(event) {
+    const input = event.target;
+    if (input.dataset.field === "day" && input.value && input.validity.valid) this.selectDate(input.value);
+  }
+
   chart() {
-    const { day, profile, azimuth, upper_limb, direct } = this.data;
+    const { day, profile, azimuth, upper_limb, direct, today } = this.data;
     const left = 39, right = 606, top = 12, bottom = 183;
     const summit = day.path.reduce((best, item) => item[2] > best[2] ? item : best);
     const center = summit[1];
@@ -369,7 +429,7 @@ class HorizonCard extends LiveCard {
       paths[shown ? "sun" : "shade"].push(`M${f(x(a))},${f(y(aEle))}L${f(x(b))},${f(y(bEle))}`);
     }
     const now = full ? azimuth : unwrap(azimuth);
-    const sunMarker = now >= start && now <= stop && upper_limb >= low
+    const sunMarker = day.date === today && now >= start && now <= stop && upper_limb >= low
       ? `<circle cx="${f(x(now))}" cy="${f(y(upper_limb))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
     return `<svg class="horizon-plot" viewBox="0 0 620 215" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}">
       <defs><clipPath id="horizon-clip"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
@@ -385,15 +445,21 @@ class HorizonCard extends LiveCard {
   }
 
   renderData() {
-    const { direct, day, upper_limb, azimuth, terrain } = this.data;
+    const { direct, day, upper_limb, azimuth, terrain, today, zone } = this.data;
     const degrees = value => new Intl.NumberFormat(this.lang === "no" ? "nb-NO" : "en",
       { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value) + "°";
+    const currentYear = Number(today.slice(0, 4));
+    const periods = day.direct.length
+      ? `${this.formatPeriods(day.direct, day, zone)} · ${this.formatDuration(day.totals.direct)}` : this.l.noSun;
+    const live = day.date === today ? `<p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
+      <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>` : "";
     return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+      ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
       <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}</div>
       ${this.chart()}
       <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span></div>
-      <p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
-      <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>`;
+      <dl>${row(this.l.periods, periods)}</dl>
+      ${live}`;
   }
 }
 
@@ -412,6 +478,7 @@ class YearCard extends SolarCard {
     }).format(Date.now());
     this.today = today;
     this.index = Math.max(0, this.data.days.findIndex(day => day.date === today));
+    this.updateSimilarDay();
   }
 
   handleClick(event) {
@@ -448,7 +515,30 @@ class YearCard extends SolarCard {
 
   select(index) {
     this.index = Math.max(0, Math.min(this.data.days.length - 1, index));
+    this.updateSimilarDay();
     this.draw();
+  }
+
+  async updateSimilarDay() {
+    const day = this.data.days[this.index];
+    if (this.similar?.date === day.date && !this.similar.error) return;
+    const lookup = { date: day.date, dark: day.totals.direct === 0 };
+    this.similar = lookup;
+    try {
+      lookup.result = await request(this._hass, "similar_sun", { date: day.date });
+    } catch (error) {
+      lookup.error = true;
+    }
+    const output = this.shadowRoot.querySelector("[data-similar-result]");
+    if (lookup === this.similar && output) output.textContent = this.similarDayValue();
+  }
+
+  similarDayValue() {
+    const { error, result, dark } = this.similar;
+    if (error) return this.l.lookupFailed;
+    if (result === undefined) return this.l.loading;
+    if (!result) return dark ? this.l.noSunFound : this.l.noMatch;
+    return `${this.formatDate(result.date, true)} · ${this.formatDuration(result.duration)}`;
   }
 
   chart() {
@@ -531,18 +621,15 @@ class YearCard extends SolarCard {
       ${this.chart()}
       ${this.legend()}
       <div class="day">
-        <div class="controls">
-          <button type="button" data-action="prev" aria-label="${this.l.prev}" ${this.index === 0 ? "disabled" : ""}>‹</button>
-          <label><input type="date" data-field="day" aria-label="${this.l.date}" value="${day.date}" min="${days[0].date}" max="${days.at(-1).date}"></label>
-          <button type="button" data-action="next" aria-label="${this.l.next}" ${this.index === days.length - 1 ? "disabled" : ""}>›</button>
-          ${currentYear === this.year ? `<button type="button" data-action="today">${this.l.today}</button>` : ""}
-        </div>
+        ${this.dateControls(day.date, days[0].date, days.at(-1).date, currentYear === this.year)}
         ${this.timeline(day, this.zone, Date.now() / 1000)}
         <dl>
           ${row(this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, this.zone) : this.l.noSun)}
           ${row(this.l.direct, this.formatDuration(day.totals.direct))}
           ${row(this.l.terrain_shade, this.formatDuration(day.totals.terrain_shade))}
           ${row(this.l.daylight, this.formatDuration(day.totals.daylight))}
+          <div class="row"><dt>${this.similar.dark ? this.l.nextSun : this.l.similarSun}</dt>
+            <dd data-similar-result aria-live="polite">${this.similarDayValue()}</dd></div>
         </dl>
       </div>
       <details ${opened ? "open" : ""}><summary>${this.l.seasons}</summary>

@@ -8,6 +8,7 @@ from custom_components.terrain_sun.engine import (
     Horizon,
     SolarModel,
     next_boundary,
+    next_matching_day,
     parse_horizon,
 )
 
@@ -16,6 +17,38 @@ FLAT = Horizon((0, 90, 180, 270), (0, 0, 0, 0))
 
 
 class SolarTest(unittest.TestCase):
+    def test_matching_day_uses_first_crossing_after_solstice(self):
+        reference = {"date": "2026-11-19", "totals": {"direct": 500}}
+        days = [
+            {"date": day, "totals": {"direct": seconds}}
+            for day, seconds in (
+                ("2026-11-20", 500),
+                ("2026-12-21", 100),
+                ("2027-01-21", 470),
+                ("2027-01-22", 510),
+                ("2027-01-23", 500),
+            )
+        ]
+        turns = ("2026-12-21", "2027-06-21")
+        self.assertEqual(next_matching_day(days, reference, turns), days[3])
+
+    def test_matching_day_handles_no_sun_and_near_extremum(self):
+        reference = {"date": "2026-12-20", "totals": {"direct": 0}}
+        solstice = {"date": "2026-12-21", "totals": {"direct": 0}}
+        first_sun = {"date": "2027-01-02", "totals": {"direct": 125}}
+        turns = ("2026-12-21", "2027-06-21")
+        self.assertEqual(
+            next_matching_day([solstice, first_sun], reference, turns), first_sun
+        )
+        self.assertIsNone(next_matching_day([solstice], reference, turns))
+
+        reference["totals"]["direct"] = 110
+        solstice["totals"]["direct"] = 112
+        self.assertEqual(
+            next_matching_day([solstice, first_sun], reference, turns), first_sun
+        )
+        self.assertIsNone(next_matching_day([solstice], reference, turns))
+
     def test_wrap_and_coordinates(self):
         horizon, coordinates = parse_horizon(
             "# 33.1°S, 18.4°E\n350 3\n170 7\n10 5\n260 0\n90 5"

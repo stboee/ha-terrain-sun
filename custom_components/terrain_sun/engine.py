@@ -345,3 +345,45 @@ def next_boundary(day: dict, tomorrow: dict, timestamp: float) -> int | None:
         ),
         None,
     )
+
+
+def next_matching_day(
+    days: list[dict], reference: dict, turns: tuple[str, str]
+) -> dict | None:
+    """Find the first return to the reference sun duration after the next solstice."""
+    target = reference["totals"]["direct"]
+    if target == 0:
+        limit = (
+            date.fromisoformat(reference["date"]) + timedelta(days=366)
+        ).isoformat()
+        return next(
+            (
+                day
+                for day in days
+                if reference["date"] < day["date"] <= limit
+                and day["totals"]["direct"] > 0
+            ),
+            None,
+        )
+
+    turn, following_turn = turns
+    season = [day for day in days if turn <= day["date"] <= following_turn]
+    for before, after in pairwise(season):
+        before_delta = before["totals"]["direct"] - target
+        after_delta = after["totals"]["direct"] - target
+        if after_delta == 0:
+            return after
+        if before_delta * after_delta < 0:
+            if before["date"] > turn and abs(before_delta) <= abs(after_delta):
+                return before
+            return after
+
+    # Around a solstice, the modeled extremum may differ by a few seconds.
+    nearest = min(
+        season[1:],
+        key=lambda day: abs(day["totals"]["direct"] - target),
+        default=None,
+    )
+    if nearest and abs(nearest["totals"]["direct"] - target) <= 30:
+        return nearest
+    return None

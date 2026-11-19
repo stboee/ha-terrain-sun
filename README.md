@@ -19,9 +19,11 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 
 | Kort | Innhold | Type i YAML |
 |---|---|---|
-| **Sol i dag** | Status, neste overgang, døgnstripe, solperioder, dagslengde og utvidbare lysfaser. | `custom:terrain-sun-today` |
-| **Lokal horisont** | Terreng og solbane i grader, vist som dagsutsnitt eller 360°. Gull markerer den synlige delen av solbanen. | `custom:terrain-sun-horizon` |
-| **Solåret** | Samme årsgraf i klokkeslett- og varighetsvisning, med en velgbar dato, kronologisk døgnstripe, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
+| **Sol i dag** | Status, neste overgang, døgnstripe, solperioder, dagslengde og utvidbare lysfaser. Viser endringer i direkte soltid fra i går, til i morgen og for siste og neste 7 dager. | `custom:terrain-sun-today` |
+| **Lokal horisont** | Datovelger med i dag som standard. Viser terreng, solbane og direkte solperioder med samlet varighet for valgt dato. Bytt mellom dagsutsnitt og 360°. | `custom:terrain-sun-horizon` |
+| **Solåret** | Årsgraf i klokkeslett- og varighetsvisning, datovelger, døgnstripe, neste dato med tilsvarende soltid, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
+
+**Neste gang det er så lyst** sammenligner samlet direkte soltid for valgt dato med dagene etter neste solverv. Kortet viser datoen som ligger nærmest ved første tilbakekomst til omtrent samme soltid. Har valgt dato ingen direkte sol, viser kortet første kommende dato med direkte sol, innen ett år. I sjudagersradene sammenlignes dagens direkte soltid med datoene nøyaktig 7 dager før og etter.
 
 Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du inn Home Assistant-fanen på nytt. Integrasjonen registrerer kortfilen automatisk, også når dashboardressurser styres fra YAML. En eksisterende YAML-oppføring med `/terrain_sun/terrain-sun.js` og typen `module` kan brukes videre.
 
