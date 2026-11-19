@@ -77,9 +77,7 @@ const STYLES = /* css */ `
   .controls {display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.82rem;margin:0 0 9px}
   .controls .spacer {flex:1}
   .controls label {display:flex;align-items:center;gap:5px}
-  .year-plot, .horizon-plot {width:100%;display:block;overflow:visible}
-  .year-plot {aspect-ratio:620/242}
-  .horizon-plot {aspect-ratio:620/215}
+  .year-plot, .horizon-plot {width:100%;height:auto;display:block;overflow:visible}
   .axis {fill:var(--ts-muted);font:13px system-ui,sans-serif}
   .grid {stroke:var(--ts-line);stroke-width:1;vector-effect:non-scaling-stroke}
   .year-plot .hit {touch-action:pan-y;cursor:crosshair;fill:transparent}
@@ -334,7 +332,7 @@ function horizonElevation(profile, azimuth) {
 
 class HorizonCard extends LiveCard {
   get view() { return "horizon"; }
-  getCardSize() { return 5; }
+  getCardSize() { return 7; }
   selectedDate = null;
 
   async load() {
@@ -382,7 +380,7 @@ class HorizonCard extends LiveCard {
 
   chart() {
     const { day, profile, azimuth, upper_limb, direct, today } = this.data;
-    const left = 39, right = 606, top = 12, bottom = 183;
+    const left = 39, right = 606, top = 12, bottom = 354;
     const summit = day.path.reduce((best, item) => item[2] > best[2] ? item : best);
     const center = summit[1];
     const unwrap = angle => center + normalize(angle - center + 180) - 180;
@@ -431,7 +429,7 @@ class HorizonCard extends LiveCard {
     const now = full ? azimuth : unwrap(azimuth);
     const sunMarker = day.date === today && now >= start && now <= stop && upper_limb >= low
       ? `<circle cx="${f(x(now))}" cy="${f(y(upper_limb))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
-    return `<svg class="horizon-plot" viewBox="0 0 620 215" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}">
+    return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}">
       <defs><clipPath id="horizon-clip"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
       ${grid.join("")}
       <g clip-path="url(#horizon-clip)">
@@ -454,8 +452,8 @@ class HorizonCard extends LiveCard {
     const live = day.date === today ? `<p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
       <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>` : "";
     return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
-      ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
       <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}</div>
+      ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
       ${this.chart()}
       <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span></div>
       <dl>${row(this.l.periods, periods)}</dl>
@@ -467,7 +465,7 @@ class YearCard extends SolarCard {
   mode = "clock";
   evening = "20:00";
   getGridOptions() { return { columns: 12, min_columns: 6, rows: "auto" }; }
-  getCardSize() { return 8; }
+  getCardSize() { return 10; }
 
   async load() {
     this.data = await request(this._hass, "year", this.year ? { year: this.year } : {});
@@ -543,7 +541,7 @@ class YearCard extends SolarCard {
 
   chart() {
     const { days } = this.data;
-    const left = 39, right = 606, top = 10, bottom = 207;
+    const left = 39, right = 606, top = 10, bottom = 404;
     const width = (right - left) / days.length;
     const max = this.mode === "duration"
       ? Math.max(86400, ...days.map(day => day.end - day.start)) : 86400;
@@ -583,7 +581,7 @@ class YearCard extends SolarCard {
       const label = new Intl.DateTimeFormat(this.lang === "no" ? "nb-NO" : "en-GB", {
         month: "short", timeZone: "UTC",
       }).format(new Date(day.date + "T12:00:00Z"));
-      months.push(`<text class="axis" x="${f(left + index * width + 2)}" y="227">${escape(label)}</text>`);
+      months.push(`<text class="axis" x="${f(left + index * width + 2)}" y="${bottom + 20}">${escape(label)}</text>`);
     });
     const solstices = this.data.solstices.map(event => {
       const index = days.findIndex(day => day.date === event.date);
@@ -591,7 +589,7 @@ class YearCard extends SolarCard {
       return `<path class="solstice" d="M${mark},${top}V${bottom}"/>`;
     });
     const cursor = f(left + (this.index + .5) * width);
-    return `<svg class="year-plot" viewBox="0 0 620 242" aria-label="${this.l.graph}">
+    return `<svg class="year-plot" viewBox="0 0 620 ${bottom + 35}" aria-label="${this.l.graph}">
       ${grids.join("")}
       ${legendOrder.slice().reverse().map(key => `<path class="tone-${key}" d="${paths[key].join("")}"/>`).join("")}
       ${solstices.join("")}
@@ -618,10 +616,10 @@ class YearCard extends SolarCard {
         ${toggler("duration", this.l.duration, this.mode === "duration")}
         <span class="spacer"></span><label>${this.l.year} <select data-field="year">${yearOptions}</select></label>
       </div>
+      ${this.dateControls(day.date, days[0].date, days.at(-1).date, currentYear === this.year)}
       ${this.chart()}
       ${this.legend()}
       <div class="day">
-        ${this.dateControls(day.date, days[0].date, days.at(-1).date, currentYear === this.year)}
         ${this.timeline(day, this.zone, Date.now() / 1000)}
         <dl>
           ${row(this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, this.zone) : this.l.noSun)}
