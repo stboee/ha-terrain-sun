@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
-from .engine import Horizon, SolarModel, next_boundary, next_matching_day
+from .engine import PHASE_LIMITS, Horizon, SolarModel, next_boundary, next_matching_day
 
 DOMAIN = "terrain_sun"
 PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR)
@@ -145,6 +145,7 @@ type TerrainConfigEntry = ConfigEntry[TerrainRuntime]
         vol.Required("view"): vol.In(("now", "horizon", "day", "year", "similar_sun")),
         vol.Optional("date"): str,
         vol.Optional("year"): int,
+        vol.Optional("moon"): bool,
     }
 )
 @websocket_api.async_response
@@ -183,6 +184,11 @@ async def _async_get_data(hass, connection, message):
                     }
                 )
                 result["today"] = today.isoformat()
+                result["phase_limits"] = PHASE_LIMITS
+                if day == today and message.get("moon"):
+                    result["moon"] = await hass.async_add_executor_job(
+                        runtime.model.moon_position, now
+                    )
                 profile = runtime.model.horizon
                 result["profile"] = [
                     [0, profile.at(0)],

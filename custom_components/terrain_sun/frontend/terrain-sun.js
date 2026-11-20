@@ -6,6 +6,11 @@ const TYPES = {
 };
 const WORDS = {
   no: {
+    title: "Tittel", graphHeight: "Grafhøyde", compact: "Kompakt", normal: "Normal", tall: "Høy",
+    minElevation: "Nedre gradgrense", maxElevation: "Øvre gradgrense", autoElevation: "La feltet stå tomt for automatisk skalering.",
+    centerSun: "Sentrer på solbanen", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
+    sunCenter: "solsentrum", invalidHeight: "Velg Kompakt, Normal eller Høy.",
+    invalidLimits: "Gradgrensene må være mellom −90° og 90°, med nedre grense under øvre grense.",
     direct: "Direkte sol", terrain_shade: "Dagslys i terrengskygge", daylight: "Dagslengde ved fri horisont",
     daylight_phase: "Dagslys", civil: "Borgerlig skumring", nautical: "Nautisk skumring",
     astronomical: "Astronomisk skumring", night: "Natt", golden: "Gyllen time",
@@ -24,6 +29,11 @@ const WORDS = {
     retry: "Prøv igjen", prev: "Forrige dag", next: "Neste dag", today: "I dag", directions: ["N", "Ø", "S", "V", "N"],
   },
   en: {
+    title: "Title", graphHeight: "Chart height", compact: "Compact", normal: "Normal", tall: "Tall",
+    minElevation: "Lower elevation limit", maxElevation: "Upper elevation limit", autoElevation: "Leave blank for automatic scaling.",
+    centerSun: "Center on the sun path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
+    sunCenter: "sun center", invalidHeight: "Choose Compact, Normal, or Tall.",
+    invalidLimits: "Elevation limits must be between −90° and 90°, with the lower limit below the upper limit.",
     direct: "Direct sun", terrain_shade: "Daylight in terrain shade", daylight: "Daylight with a clear horizon",
     daylight_phase: "Daylight", civil: "Civil twilight", nautical: "Nautical twilight",
     astronomical: "Astronomical twilight", night: "Night", golden: "Golden hour",
@@ -87,6 +97,8 @@ const STYLES = /* css */ `
   .shade-line {stroke:var(--ts-nautical);stroke-width:1.7;stroke-dasharray:4 3;fill:none;vector-effect:non-scaling-stroke}
   .terrain-fill {fill:var(--ts-civil);opacity:.24}
   .terrain-line {stroke:var(--ts-nautical);stroke-width:1.6;fill:none;vector-effect:non-scaling-stroke}
+  .twilight-band {fill-opacity:.44}
+  .moon-marker {fill:#eef2f5;stroke:#435864;stroke-width:1.4;vector-effect:non-scaling-stroke}
   .strip {position:relative;margin-top:9px;height:22px;border-radius:5px;overflow:hidden;background:var(--ts-night)}
   .strip span {position:absolute;height:100%;top:0;display:block}
   .strip i {position:absolute;width:2px;height:100%;background:#fff;box-shadow:0 0 0 1px #21364190}
@@ -94,6 +106,9 @@ const STYLES = /* css */ `
   .legend {display:flex;flex-wrap:wrap;column-gap:12px;row-gap:5px;margin:8px 0;color:var(--ts-muted);font-size:.74rem}
   .legend span {display:inline-flex;align-items:center;gap:5px}
   .legend i {display:inline-block;width:9px;height:9px;border-radius:2px}
+  .legend .moon-key {display:none}
+  .body:has(.moon-marker) .moon-key {display:inline-flex}
+  .legend .moon-key i {background:#eef2f5;border:1px solid #435864;border-radius:50%}
   .day {margin-top:12px;border-top:1px solid var(--ts-line);padding-top:10px}
   .day .controls {margin:0}
   .day label {font-weight:600}
@@ -109,6 +124,9 @@ const STYLES = /* css */ `
 
 const phaseOrder = ["night", "astronomical", "nautical", "civil", "daylight"];
 const legendOrder = ["direct", "daylight", "civil", "nautical", "astronomical", "night"];
+const horizonHeights = {
+  compact: { plot: 171, card: 5 }, normal: { plot: 255, card: 6 }, tall: { plot: 342, card: 7 },
+};
 const f = value => Number(value).toFixed(2);
 const row = (label, value) => `<div class="row"><dt>${label}</dt><dd>${value}</dd></div>`;
 const toggler = (action, label, selected) =>
@@ -118,6 +136,7 @@ const normalize = value => ((value % 360) + 360) % 360;
 const isNorwegian = language => /^(nb|nn|no)(-|$)/i.test(language);
 const pickerLanguage = () =>
   document.querySelector("home-assistant")?.hass?.locale?.language ?? navigator.language;
+const pickerWords = () => WORDS[isNorwegian(pickerLanguage()) ? "no" : "en"];
 const escape = value => String(value).replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -135,7 +154,7 @@ class SolarCard extends HTMLElement {
   static getConfigForm() {
     return {
       schema: [{ name: "title", selector: { text: {} } }],
-      computeLabel: () => isNorwegian(pickerLanguage()) ? "Tittel" : "Title",
+      computeLabel: () => pickerWords().title,
     };
   }
 
@@ -331,22 +350,67 @@ function horizonElevation(profile, azimuth) {
 }
 
 class HorizonCard extends LiveCard {
+  static getConfigForm() {
+    const { schema } = super.getConfigForm();
+    const words = pickerWords();
+    const labels = {
+      title: words.title, graph_height: words.graphHeight, min_elevation: words.minElevation,
+      max_elevation: words.maxElevation, center_sun: words.centerSun,
+      show_twilight: words.showTwilight, show_moon: words.showMoon,
+    };
+    const elevation = { number: { min: -90, max: 90, step: 0.1, mode: "box", unit_of_measurement: "°" } };
+    const options = Object.keys(horizonHeights).map(value => ({ value, label: words[value] }));
+    return {
+      schema: [
+        ...schema,
+        { name: "graph_height", selector: { select: { options, mode: "dropdown" } } },
+        { name: "min_elevation", selector: elevation },
+        { name: "max_elevation", selector: elevation },
+        { name: "center_sun", selector: { boolean: {} } },
+        { name: "show_twilight", selector: { boolean: {} } },
+        { name: "show_moon", selector: { boolean: {} } },
+      ],
+      computeLabel: field => labels[field.name],
+      computeHelper: field => field.selector?.number ? words.autoElevation : undefined,
+    };
+  }
+
   get view() { return "horizon"; }
-  getCardSize() { return 7; }
+  get graphSize() { return horizonHeights[this.config?.graph_height ?? "tall"]; }
+  getCardSize() { return this.graphSize.card; }
   selectedDate = null;
 
+  setConfig(config) {
+    const graph_height = config.graph_height ?? "tall";
+    if (!Object.hasOwn(horizonHeights, graph_height)) throw new Error(pickerWords().invalidHeight);
+    const min_elevation = config.min_elevation === "" ? null : config.min_elevation ?? null;
+    const max_elevation = config.max_elevation === "" ? null : config.max_elevation ?? null;
+    const low = min_elevation ?? -90;
+    const high = max_elevation ?? 90;
+    if (!Number.isFinite(low) || !Number.isFinite(high) || low < -90 || high > 90 || low >= high) {
+      throw new Error(pickerWords().invalidLimits);
+    }
+    const show_moon = config.show_moon === true;
+    const moonChanged = this.config?.show_moon !== show_moon;
+    if (!this.config || this.config.center_sun !== config.center_sun) this.centerSun = config.center_sun === true;
+    super.setConfig({ ...config, graph_height, min_elevation, max_elevation, show_moon });
+    if (this.isConnected && moonChanged) this.refresh();
+  }
+
   async load() {
-    // A date change can arrive while a background refresh is still in flight.
-    let date;
+    // Date and display settings can change while a request is in flight.
+    let date, moon;
+    const current = () => date === this.selectedDate && moon === (this.config?.show_moon === true);
     do {
       date = this.selectedDate;
+      moon = this.config?.show_moon === true;
       try {
-        const data = await request(this._hass, this.view, date ? { date } : {});
-        if (date === this.selectedDate) this.data = data;
+        const data = await request(this._hass, this.view, { ...(date && { date }), moon });
+        if (current()) this.data = data;
       } catch (error) {
-        if (date === this.selectedDate) throw error;
+        if (current()) throw error;
       }
-    } while (date !== this.selectedDate);
+    } while (!current());
   }
 
   async selectDate(date, action) {
@@ -364,6 +428,10 @@ class HorizonCard extends LiveCard {
     if (action === "area" || action === "circle") {
       this.full = action === "circle";
       this.draw();
+    } else if (action === "center-sun") {
+      this.centerSun = !this.centerSun;
+      this.draw();
+      this.shadowRoot.querySelector('[data-action="center-sun"]')?.focus();
     } else if (action === "prev" || action === "next") {
       const input = this.shadowRoot.querySelector('[data-field="day"]');
       const date = offsetDate(this.selectedDate ?? this.data.today, action === "prev" ? -1 : 1);
@@ -379,17 +447,22 @@ class HorizonCard extends LiveCard {
   }
 
   chart() {
-    const { day, profile, azimuth, upper_limb, direct, today } = this.data;
-    const left = 39, right = 606, top = 12, bottom = 354;
-    const summit = day.path.reduce((best, item) => item[2] > best[2] ? item : best);
+    const { day, profile, azimuth, upper_limb, elevation, direct, today, phase_limits, moon } = this.data;
+    const { min_elevation, max_elevation, show_moon } = this.config;
+    const twilight = this.config.show_twilight === true && Array.isArray(phase_limits);
+    const path = twilight ? day.path.map(([time, az, , altitude]) => [time, az, altitude]) : day.path;
+    const left = 39, right = 606, top = 12, bottom = top + this.graphSize.plot;
+    const summit = path.reduce((best, item) => item[2] > best[2] ? item : best);
     const center = summit[1];
     const unwrap = angle => center + normalize(angle - center + 180) - 180;
-    const active = day.path.filter(point => point[2] >= Math.min(-4, summit[2] - 1));
+    const active = path.filter(point => point[2] >= Math.min(twilight ? phase_limits[0] : -4, summit[2] - 1));
     const activeAz = active.map(point => unwrap(point[1]));
     const zoomMin = Math.floor((Math.min(...activeAz) - 18) / 30) * 30;
     const zoomMax = Math.ceil((Math.max(...activeAz) + 18) / 30) * 30;
     const full = this.full || zoomMax - zoomMin >= 360;
-    const [start, stop] = full ? [0, 360] : [zoomMin, zoomMax];
+    const radius = full ? 180 : Math.min(180, Math.max(center - zoomMin, zoomMax - center));
+    const [start, stop] = this.centerSun ? [center - radius, center + radius] : full ? [0, 360] : [zoomMin, zoomMax];
+    const bearing = full && !this.centerSun ? angle => angle : unwrap;
     const profileArc = [[start, horizonElevation(profile, start)]];
     for (const [angle, height] of profile) {
       if (angle === 360) continue;
@@ -400,14 +473,21 @@ class HorizonCard extends LiveCard {
     profileArc.push([stop, horizonElevation(profile, stop)]);
     profileArc.sort((a, b) => a[0] - b[0]);
     const profileHeights = profileArc.map(point => point[1]);
-    const low = Math.min(-8, Math.floor((Math.min(...profileHeights) - 2) / 5) * 5);
-    const high = Math.max(10, Math.ceil((Math.max(summit[2], ...profileHeights) + 2) / 5) * 5);
+    const autoLow = Math.min(twilight ? phase_limits[0] - 2 : -8, Math.floor((Math.min(...profileHeights) - 2) / 5) * 5);
+    const autoHigh = Math.max(10, Math.ceil((Math.max(summit[2], ...profileHeights) + 2) / 5) * 5);
+    const low = min_elevation ?? Math.min(autoLow, Math.max(-90, (max_elevation ?? 90) - 5));
+    const high = max_elevation ?? Math.max(autoHigh, Math.min(90, low + 5));
     const x = angle => left + (angle - start) / (stop - start) * (right - left);
     const y = altitude => bottom - (altitude - low) / (high - low) * (bottom - top);
     const line = profileArc.map(([az, ele], index) => `${index ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
     const grid = [];
-    const verticalStep = high - low > 45 ? 20 : 10;
+    const span = high - low;
+    const verticalStep = span > 45 ? 20 : span > 20 ? 10 : span > 8 ? 5 : span >= 3 ? 2 : 1;
+    const ticks = [];
     for (let height = Math.ceil(low / verticalStep) * verticalStep; height <= high; height += verticalStep) {
+      ticks.push(height);
+    }
+    for (const height of ticks.length > 1 ? ticks : [low, high]) {
       grid.push(`<path class="grid" d="M${left},${f(y(height))}H${right}"/><text class="axis" x="${left - 6}" y="${f(y(height) + 4)}" text-anchor="end">${height}°</text>`);
     }
     const horizontalStep = stop - start >= 240 ? 60 : 30;
@@ -417,20 +497,31 @@ class HorizonCard extends LiveCard {
       grid.push(`<path class="grid" d="M${f(x(angle))},${top}V${bottom}"/><text class="axis" x="${f(x(angle))}" y="${bottom + 21}" text-anchor="middle">${label}</text>`);
     }
     const paths = { sun: [], shade: [] };
-    for (let i = 1; i < day.path.length; i++) {
-      const [aTime, aRaw, aEle] = day.path[i - 1];
-      const [bTime, bRaw, bEle] = day.path[i];
-      const [a, b] = full ? [aRaw, bRaw] : [unwrap(aRaw), unwrap(bRaw)];
+    for (let i = 1; i < path.length; i++) {
+      const [aTime, aRaw, aEle] = path[i - 1];
+      const [bTime, bRaw, bEle] = path[i];
+      const [a, b] = [bearing(aRaw), bearing(bRaw)];
       if (Math.abs(a - b) > 180 || (aEle < low && bEle < low)) continue;
       const middle = (aTime + bTime) / 2;
       const shown = day.direct.some(([from, to]) => from <= middle && middle < to);
       paths[shown ? "sun" : "shade"].push(`M${f(x(a))},${f(y(aEle))}L${f(x(b))},${f(y(bEle))}`);
     }
-    const now = full ? azimuth : unwrap(azimuth);
-    const sunMarker = day.date === today && now >= start && now <= stop && upper_limb >= low
-      ? `<circle cx="${f(x(now))}" cy="${f(y(upper_limb))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
-    return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}">
+    const bands = twilight ? phaseOrder.slice(0, -1).map((phase, index) => {
+      const bottom = Math.max(low, phase_limits[index - 1] ?? low);
+      const top = Math.min(high, phase_limits[index]);
+      return top > bottom ? `<rect class="twilight-band tone-${phase}" x="${left}" y="${f(y(top))}" width="${right - left}" height="${f(y(bottom) - y(top))}"><title>${this.l[phase]}</title></rect>` : "";
+    }).join("") : "";
+    const inView = (az, altitude) => az >= start && az <= stop && altitude >= low && altitude <= high;
+    const now = bearing(azimuth);
+    const sunAltitude = twilight ? elevation : upper_limb;
+    const sunMarker = day.date === today && inView(now, sunAltitude)
+      ? `<circle cx="${f(x(now))}" cy="${f(y(sunAltitude))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
+    const moonBearing = bearing(moon?.azimuth);
+    const moonMarker = day.date === today && show_moon && moon && inView(moonBearing, moon.elevation)
+      ? `<circle class="moon-marker" cx="${f(x(moonBearing))}" cy="${f(y(moon.elevation))}" r="7"><title>${this.l.moon}</title></circle>` : "";
+    return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}${moonMarker ? ` · ${this.l.moon}` : ""}">
       <defs><clipPath id="horizon-clip"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
+      ${bands}
       ${grid.join("")}
       <g clip-path="url(#horizon-clip)">
         <path class="terrain-fill" d="${line}V${bottom}H${left}Z"/>
@@ -438,6 +529,7 @@ class HorizonCard extends LiveCard {
         <path class="shade-line" d="${paths.shade.join("")}"/>
         <path class="sun-line" d="${paths.sun.join("")}"/>
         ${sunMarker}
+        ${moonMarker}
       </g>
     </svg>`;
   }
@@ -452,10 +544,14 @@ class HorizonCard extends LiveCard {
     const live = day.date === today ? `<p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>
       <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>` : "";
     return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
-      <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}</div>
+      <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}
+        ${toggler("center-sun", this.l.centerSun, this.centerSun)}</div>
       ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
       ${this.chart()}
-      <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span></div>
+      <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span>
+        ${this.config.show_moon ? `<span class="moon-key"><i></i>${this.l.moon}</span>` : ""}
+        ${this.config.show_twilight === true ? `<span>${this.l.sunPath} (${this.l.sunCenter})</span>` + phaseOrder.slice(0, -1).reverse().map(phase =>
+          `<span><i class="tone-${phase}"></i>${this.l[phase]}</span>`).join("") : ""}</div>
       <dl>${row(this.l.periods, periods)}</dl>
       ${live}`;
   }

@@ -27,6 +27,18 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 
 Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du inn Home Assistant-fanen på nytt. Integrasjonen registrerer kortfilen automatisk, også når dashboardressurser styres fra YAML. En eksisterende YAML-oppføring med `/terrain_sun/terrain-sun.js` og typen `module` kan brukes videre.
 
+### Innstillinger for Lokal horisont
+
+Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende YAML-feltene.
+
+| Innstilling | Felt i YAML | Standard og virkemåte |
+|---|---|---|
+| Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
+| Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Auto for hvert felt som står tomt. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
+| Vis skumring | `show_twilight` | Av. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
+| Sentrer på solbanen | `center_sun` | Av. Solbanens høyeste punkt plasseres midt i figuren horisontalt, også i 360°-visningen. Knappen i kortet veksler visningen, og innstillingen angir startvalget. |
+| Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
+
 ### Skjermbilder
 
 Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
@@ -37,7 +49,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med datovelger, terrengprofil, solbane og direkte solperioder for valgt dag">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med sentrert solbane, skumringsfarger og månemarkør">
 
 #### Solåret
 

@@ -10,6 +10,9 @@ from datetime import UTC, date, datetime, time, timedelta
 from itertools import pairwise
 from zoneinfo import ZoneInfo
 
+from astronomy import Body, Equator, Observer, Refraction, Time
+from astronomy import Horizon as equatorial_to_horizontal
+
 SUN_RADIUS = 0.26667
 SUNRISE = -0.833
 PHASE_LIMITS = (-18.0, -12.0, -6.0, SUNRISE)
@@ -183,6 +186,22 @@ class SolarModel:
             azimuth, elevation, elevation + _refraction(elevation) + SUN_RADIUS
         )
 
+    def moon_position(self, now: datetime) -> dict:
+        """Calculate the apparent position of the Moon for this horizon profile."""
+        observer = Observer(self.latitude, self.longitude)
+        utc = now.astimezone(UTC)
+        instant = Time.Make(
+            utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second
+        )
+        equator = Equator(Body.Moon, instant, observer, ofdate=True, aberration=True)
+        moon = equatorial_to_horizontal(
+            instant, observer, equator.ra, equator.dec, Refraction.Normal
+        )
+        return {
+            "azimuth": moon.azimuth,
+            "elevation": moon.altitude,
+        }
+
     def solstices(self, year: int) -> list[dict[str, str]]:
         """Find the 90° and 270° apparent ecliptic longitude crossings."""
         events = []
@@ -324,7 +343,7 @@ class SolarModel:
         result = []
         for stamp in sorted(stamps):
             pos = self.position(stamp)
-            result.append([stamp, pos.azimuth, pos.upper_limb])
+            result.append([stamp, pos.azimuth, pos.upper_limb, pos.elevation])
         return result
 
 

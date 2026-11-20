@@ -72,6 +72,19 @@ class SolarTest(unittest.TestCase):
         self.assertLess(abs((rise.hour * 60 + rise.minute) - (8 * 60 + 33)), 3)
         self.assertLess(abs((setting.hour * 60 + setting.minute) - (15 * 60 + 32)), 3)
 
+    def test_path_includes_both_altitudes_for_horizon_and_twilight(self):
+        model = SolarModel(61.115, 10.466, FLAT, OSLO)
+        day = model.day(date(2026, 11, 20))
+        stamp, azimuth, upper_limb, elevation = max(
+            model.path(day), key=lambda point: point[3]
+        )
+        position = model.position(stamp)
+        self.assertEqual(
+            (azimuth, upper_limb, elevation),
+            (position.azimuth, position.upper_limb, position.elevation),
+        )
+        self.assertGreater(upper_limb, elevation)
+
     def test_ridge_splits_direct_sun(self):
         horizon = Horizon(
             (0, 130, 155, 175, 185, 205, 230, 315), (1, 1, 1, 60, 60, 1, 1, 1)
