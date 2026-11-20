@@ -34,10 +34,12 @@ Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende Y
 | Innstilling | Felt i YAML | Standard og virkemåte |
 |---|---|---|
 | Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
-| Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Auto for hvert felt som står tomt. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
+| Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder vanlig visning. Tomme felt skaleres automatisk. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
 | Vis skumring | `show_twilight` | Av. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
-| Sentrer på solbanen | `center_sun` | Av. Solbanens høyeste punkt plasseres midt i figuren horisontalt, også i 360°-visningen. Knappen i kortet veksler visningen, og innstillingen angir startvalget. |
+| Fast solbane | `fixed_sun` | Av. Solbuen ligger fast, og terrenget tegnes i grader over eller under buen i hver kompassretning. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
 | Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
+
+I **Fast solbane** følger månemarkøren og skumringsbåndene den relative skalaen. Gradmerkene viser den loddrette avstanden fra solbuen. Der sola passerer samme kompassretning flere ganger samme dag, brukes den høyeste passeringen som referanse.
 
 ### Skjermbilder
 
@@ -49,7 +51,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med sentrert solbane, skumringsfarger og månemarkør">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med fast solbane, skumringsfarger og månemarkør">
 
 #### Solåret
 
