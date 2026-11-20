@@ -36,10 +36,10 @@ Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende Y
 | Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
 | Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder vanlig visning. Tomme felt skaleres automatisk. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
 | Vis skumring | `show_twilight` | Av. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
-| Fast solbane | `fixed_sun` | Av. Solbuen ligger fast, og terrenget tegnes i grader over eller under buen i hver kompassretning. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
+| Fast solbane | `fixed_sun` | Av. Grafvinduet tilpasses så hele solbanen innenfor kompassutsnittet får plass. Begge aksene viser faktiske grader med lineær skala. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
 | Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
 
-I **Fast solbane** følger månemarkøren og skumringsbåndene den relative skalaen. Gradmerkene viser den loddrette avstanden fra solbuen. Der sola passerer samme kompassretning flere ganger samme dag, brukes den høyeste passeringen som referanse.
+I **Fast solbane** deler sol, terreng, skumringsbånd og måne samme høydeakse. Når grafvinduet tilpasses en annen dato, flytter terrengprofilen seg i bildet og kan fortsatt leses av i faktiske grader. Y-aksen tilpasses også i 360°-visningen.
 
 ### Skjermbilder
 
@@ -51,7 +51,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med fast solbane, skumringsfarger og månemarkør">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med Fast solbane, lineære akser og faktiske høydegrader">
 
 #### Solåret
 
@@ -66,3 +66,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
 - Tidene beskriver terrengskygge ved utsiktspunktet. Faste hindringer inngår slik de er representert i horisontprofilen. Observert direkte sol vil også avhenge av skydekke og lokale hindringer.
 
 Solarberegningen er basert på [NOAA Solar Calculator](https://gml.noaa.gov/grad/solcalc/calcdetails.html). Den reelle horisontprofilen må passe til stedet du ønsker å beregne for.
+
+## Versjonsbeskrivelser
+
+Legg til `docs/releases/v<VERSJON>.md` med endringene for brukerne i samme commit som oppdaterer `version` i manifestet. Publiseringen bruker teksten fra filen i både Git-taggen og GitHub-releasen. [Publiserte versjoner](https://github.com/stboee/ha-terrain-sun/releases)

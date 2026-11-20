@@ -8,7 +8,7 @@ const WORDS = {
   no: {
     title: "Tittel", graphHeight: "Grafhøyde", compact: "Kompakt", normal: "Normal", tall: "Høy",
     minElevation: "Nedre gradgrense", maxElevation: "Øvre gradgrense", autoElevation: "La feltet stå tomt for automatisk skalering.",
-    fixedSun: "Fast solbane", relativeElevation: "Høyde relativt til solbanen", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
+    fixedSun: "Fast solbane", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
     sunCenter: "solsentrum", invalidHeight: "Velg Kompakt, Normal eller Høy.",
     invalidLimits: "Gradgrensene må være mellom −90° og 90°, med nedre grense under øvre grense.",
     direct: "Direkte sol", terrain_shade: "Dagslys i terrengskygge", daylight: "Dagslengde ved fri horisont",
@@ -31,7 +31,7 @@ const WORDS = {
   en: {
     title: "Title", graphHeight: "Chart height", compact: "Compact", normal: "Normal", tall: "Tall",
     minElevation: "Lower elevation limit", maxElevation: "Upper elevation limit", autoElevation: "Leave blank for automatic scaling.",
-    fixedSun: "Fixed sun path", relativeElevation: "Elevation relative to the sun path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
+    fixedSun: "Fixed sun path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
     sunCenter: "sun center", invalidHeight: "Choose Compact, Normal, or Tall.",
     invalidLimits: "Elevation limits must be between −90° and 90°, with the lower limit below the upper limit.",
     direct: "Direct sun", terrain_shade: "Daylight in terrain shade", daylight: "Daylight with a clear horizon",
@@ -94,7 +94,6 @@ const STYLES = /* css */ `
   .solstice {stroke:#fff;stroke-dasharray:3 4;opacity:.55;vector-effect:non-scaling-stroke}
   .cursor {stroke:#fff;stroke-width:1.8;vector-effect:non-scaling-stroke;filter:drop-shadow(1px 0 #233942)}
   .sun-line {stroke:var(--ts-sun);stroke-width:2.5;fill:none;vector-effect:non-scaling-stroke}
-  .fixed-reference {stroke:var(--ts-muted);stroke-width:1.5;stroke-dasharray:3 4;fill:none;vector-effect:non-scaling-stroke}
   .shade-line {stroke:var(--ts-nautical);stroke-width:1.7;stroke-dasharray:4 3;fill:none;vector-effect:non-scaling-stroke}
   .terrain-fill {fill:var(--ts-civil);opacity:.24}
   .terrain-line {stroke:var(--ts-nautical);stroke-width:1.6;fill:none;vector-effect:non-scaling-stroke}
@@ -350,28 +349,29 @@ function horizonElevation(profile, azimuth) {
   return left[1] + (right[1] - left[1]) * (azimuth - left[0]) / (right[0] - left[0]);
 }
 
-function solarAltitudeLookup(path) {
-  const byBearing = path.map(([, bearing, altitude]) => [bearing, altitude]).sort((a, b) => a[0] - b[0]);
-  const [first, last] = [byBearing[0], byBearing.at(-1)];
-  // Interpolate across any bearings outside the day's track to keep the terrain continuous.
-  const complete = [[last[0] - 360, last[1]], ...byBearing, [first[0] + 360, first[1]]];
-  const segments = path.slice(1).map(([, to, end], index) => {
-    const [, from, begin] = path[index];
-    return [from, normalize(to - from + 180) - 180, begin, end];
-  });
-  return azimuth => {
-    let highest = -Infinity;
-    for (const [from, width, begin, end] of segments) {
-      const offset = normalize(azimuth - from + 180) - 180;
-      if (width === 0) {
-        if (offset === 0) highest = Math.max(highest, begin, end);
+function solarSegments(path, bearing, start, stop) {
+  const segments = [];
+  for (let index = 1; index < path.length; index++) {
+    const [fromTime, fromAz, fromAltitude] = path[index - 1];
+    const [toTime, toAz, toAltitude] = path[index];
+    const sweep = normalize(toAz - fromAz + 180) - 180;
+    const time = (fromTime + toTime) / 2;
+    // Clip each copy at the chart edges, including paths across the 0°/360° seam.
+    for (const turn of [-360, 0, 360]) {
+      const az = bearing(fromAz) + turn;
+      if (sweep === 0) {
+        if (az >= start && az < stop) segments.push([time, az, fromAltitude, az, toAltitude]);
         continue;
       }
-      const fraction = offset / width;
-      if (fraction >= 0 && fraction <= 1) highest = Math.max(highest, begin + fraction * (end - begin));
+      const edges = [(start - az) / sweep, (stop - az) / sweep];
+      const first = Math.max(0, Math.min(...edges));
+      const last = Math.min(1, Math.max(...edges));
+      if (first >= last) continue;
+      const rise = toAltitude - fromAltitude;
+      segments.push([time, az + first * sweep, fromAltitude + first * rise, az + last * sweep, fromAltitude + last * rise]);
     }
-    return Number.isFinite(highest) ? highest : horizonElevation(complete, azimuth);
-  };
+  }
+  return segments;
 }
 
 class HorizonCard extends LiveCard {
@@ -500,45 +500,23 @@ class HorizonCard extends LiveCard {
     const profileHeights = profileArc.map(point => point[1]);
     const autoLow = Math.min(twilight ? phase_limits[0] - 2 : -8, Math.floor((Math.min(...profileHeights) - 2) / 5) * 5);
     const autoHigh = Math.max(10, Math.ceil((Math.max(summit[2], ...profileHeights) + 2) / 5) * 5);
-    const low = this.fixedSun ? -75 : min_elevation ?? Math.min(autoLow, Math.max(-90, (max_elevation ?? 90) - 5));
-    const high = this.fixedSun ? 85 : max_elevation ?? Math.max(autoHigh, Math.min(90, low + 5));
+    const segments = solarSegments(path, bearing, start, stop);
+    const lowestSun = Math.min(...segments.flatMap(([, , a, , b]) => [a, b]));
+    const low = this.fixedSun ? Math.min(autoLow, Math.floor((lowestSun - 2) / 5) * 5)
+      : min_elevation ?? Math.min(autoLow, Math.max(-90, (max_elevation ?? 90) - 5));
+    const high = this.fixedSun ? autoHigh : max_elevation ?? Math.max(autoHigh, Math.min(90, low + 5));
     const x = angle => left + (angle - start) / (stop - start) * (right - left);
     const y = altitude => bottom - (altitude - low) / (high - low) * (bottom - top);
-    const fractions = Array.from({ length: 121 }, (_, index) => index / 120);
-    const reference = fraction => -29 + 57 * Math.sin(Math.PI * fraction);
-    const referenceLine = offset => fractions.map((fraction, index) =>
-      `${index ? "L" : "M"}${f(left + fraction * (right - left))},${f(y(reference(fraction) + offset))}`).join("");
-    const solarAltitude = this.fixedSun ? solarAltitudeLookup(path) : null;
-    const offsets = new Map();
-    const project = (az, altitude) => {
-      if (!solarAltitude) return altitude;
-      if (!offsets.has(az)) offsets.set(az, reference((az - start) / (stop - start)) - solarAltitude(az));
-      return altitude + offsets.get(az);
-    };
-    const projectedBearings = this.fixedSun ? [...new Set([
-      ...fractions.map(fraction => start + fraction * (stop - start)),
-      ...profileArc.map(([az]) => az),
-      ...path.map(([, az]) => bearing(az)).filter(az => az >= start && az <= stop),
-    ])].sort((a, b) => a - b) : [];
-    const terrainPath = this.fixedSun
-      ? projectedBearings.map(az => [az, project(az, horizonElevation(profile, az))]) : profileArc;
-    const line = terrainPath.map(([az, ele], index) => `${index ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
+    const line = profileArc.map(([az, ele], index) => `${index ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
     const grid = [];
     const span = high - low;
-    const verticalStep = span > 45 ? 20 : span > 20 ? 10 : span > 8 ? 5 : span >= 3 ? 2 : 1;
+    const verticalStep = span > (this.fixedSun ? 80 : 45) ? 20 : span > 20 ? 10 : span > 8 ? 5 : span >= 3 ? 2 : 1;
     const ticks = [];
     for (let height = Math.ceil(low / verticalStep) * verticalStep; height <= high; height += verticalStep) {
       ticks.push(height);
     }
-    if (this.fixedSun) {
-      for (const offset of [-30, -15, 0, 15, 30, 45]) {
-        const label = offset > 0 ? `+${offset}` : offset;
-        grid.push(`<path class="grid" fill="none" d="${referenceLine(offset)}"/><text class="axis" x="${left - 6}" y="${f(y(reference(0) + offset) + 4)}" text-anchor="end">${label}°</text>`);
-      }
-    } else {
-      for (const height of ticks.length > 1 ? ticks : [low, high]) {
-        grid.push(`<path class="grid" d="M${left},${f(y(height))}H${right}"/><text class="axis" x="${left - 6}" y="${f(y(height) + 4)}" text-anchor="end">${height}°</text>`);
-      }
+    for (const height of ticks.length > 1 ? ticks : [low, high]) {
+      grid.push(`<path class="grid" d="M${left},${f(y(height))}H${right}"/><text class="axis" x="${left - 6}" y="${f(y(height) + 4)}" text-anchor="end">${height}°</text>`);
     }
     const horizontalStep = stop - start >= 240 ? 60 : 30;
     for (let angle = Math.ceil(start / horizontalStep) * horizontalStep; angle <= stop; angle += horizontalStep) {
@@ -547,35 +525,23 @@ class HorizonCard extends LiveCard {
       grid.push(`<path class="grid" d="M${f(x(angle))},${top}V${bottom}"/><text class="axis" x="${f(x(angle))}" y="${bottom + 21}" text-anchor="middle">${label}</text>`);
     }
     const paths = { sun: [], shade: [] };
-    for (let i = 1; i < path.length; i++) {
-      const [aTime, aRaw, aEle] = path[i - 1];
-      const [bTime, bRaw, bEle] = path[i];
-      const [a, b] = [bearing(aRaw), bearing(bRaw)];
-      if (Math.abs(a - b) > 180) continue;
-      const startY = project(a, aEle), endY = project(b, bEle);
-      if (startY < low && endY < low) continue;
-      const middle = (aTime + bTime) / 2;
-      const shown = day.direct.some(([from, to]) => from <= middle && middle < to);
-      paths[shown ? "sun" : "shade"].push(`M${f(x(a))},${f(y(startY))}L${f(x(b))},${f(y(endY))}`);
+    for (const [time, a, aAltitude, b, bAltitude] of segments) {
+      if (aAltitude < low && bAltitude < low) continue;
+      const shown = day.direct.some(([from, to]) => from <= time && time < to);
+      paths[shown ? "sun" : "shade"].push(`M${f(x(a))},${f(y(aAltitude))}L${f(x(b))},${f(y(bAltitude))}`);
     }
     const bands = twilight ? phaseOrder.slice(0, -1).map((phase, index) => {
-      if (this.fixedSun) {
-        const upper = projectedBearings.map(az => `${f(x(az))},${f(y(project(az, phase_limits[index])))}`);
-        const lower = index === 0 ? [`${right},${bottom}`, `${left},${bottom}`]
-          : projectedBearings.map(az => `${f(x(az))},${f(y(project(az, phase_limits[index - 1])))}`).reverse();
-        return `<polygon class="twilight-band tone-${phase}" points="${[...upper, ...lower].join(" ")}"><title>${this.l[phase]}</title></polygon>`;
-      }
       const bandBottom = Math.max(low, phase_limits[index - 1] ?? low);
       const bandTop = Math.min(high, phase_limits[index]);
       return bandTop > bandBottom ? `<rect class="twilight-band tone-${phase}" x="${left}" y="${f(y(bandTop))}" width="${right - left}" height="${f(y(bandBottom) - y(bandTop))}"><title>${this.l[phase]}</title></rect>` : "";
     }).join("") : "";
     const inView = (az, altitude) => az >= start && az <= stop && altitude >= low && altitude <= high;
     const now = bearing(azimuth);
-    const sunAltitude = day.date === today ? project(now, twilight ? elevation : upper_limb) : NaN;
-    const sunMarker = inView(now, sunAltitude)
+    const sunAltitude = twilight ? elevation : upper_limb;
+    const sunMarker = day.date === today && inView(now, sunAltitude)
       ? `<circle class="sun-marker" cx="${f(x(now))}" cy="${f(y(sunAltitude))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
     const moonBearing = bearing(moon?.azimuth);
-    const moonAltitude = day.date === today && show_moon && moon ? project(moonBearing, moon.elevation) : NaN;
+    const moonAltitude = day.date === today && show_moon ? moon?.elevation : undefined;
     const moonMarker = inView(moonBearing, moonAltitude)
       ? `<circle class="moon-marker" cx="${f(x(moonBearing))}" cy="${f(y(moonAltitude))}" r="7"><title>${this.l.moon}</title></circle>` : "";
     return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}${moonMarker ? ` · ${this.l.moon}` : ""}">
@@ -585,7 +551,6 @@ class HorizonCard extends LiveCard {
       <g clip-path="url(#horizon-clip)">
         <path class="terrain-fill" d="${line}V${bottom}H${left}Z"/>
         <path class="terrain-line" d="${line}"/>
-        ${this.fixedSun ? `<path class="fixed-reference" d="${referenceLine(0)}"/>` : ""}
         <path class="shade-line" d="${paths.shade.join("")}"/>
         <path class="sun-line" d="${paths.sun.join("")}"/>
         ${sunMarker}
@@ -609,7 +574,6 @@ class HorizonCard extends LiveCard {
       ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
       ${this.chart()}
       <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span>
-        ${this.fixedSun ? `<span>${this.l.relativeElevation}</span>` : ""}
         ${this.config.show_moon ? `<span class="moon-key"><i></i>${this.l.moon}</span>` : ""}
         ${this.config.show_twilight === true ? `<span>${this.l.sunPath} (${this.l.sunCenter})</span>` + phaseOrder.slice(0, -1).reverse().map(phase =>
           `<span><i class="tone-${phase}"></i>${this.l[phase]}</span>`).join("") : ""}</div>
