@@ -35,7 +35,7 @@ Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende Y
 |---|---|---|
 | Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
 | Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder vanlig visning. Tomme felt skaleres automatisk. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
-| Vis skumring | `show_twilight` | Av. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
+| Vis skumring | `show_twilight` | Av ved åpning. Knappen ved siden av **Vis hele solbanen** slår fargebåndene av og på i kortet. Innstillingen angir startvalget. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
 | Vis hele solbanen | `fixed_sun` | Av. Grafvinduet tilpasses så hele solbanen innenfor kompassutsnittet får plass. Begge aksene viser faktiske grader med lineær skala. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
 | Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
 
@@ -51,7 +51,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horiz
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer med hele solbanen og grader på begge aksene">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer med knappene Vis hele solbanen og Vis skumring">
 
 #### Solåret
 

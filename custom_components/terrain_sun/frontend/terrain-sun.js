@@ -418,8 +418,10 @@ class HorizonCard extends LiveCard {
     const show_moon = config.show_moon === true;
     const moonChanged = this.config?.show_moon !== show_moon;
     const fixed_sun = (config.fixed_sun ?? config.center_sun) === true;
+    const show_twilight = config.show_twilight === true;
     if (this.config?.fixed_sun !== fixed_sun) this.fixedSun = fixed_sun;
-    super.setConfig({ ...config, graph_height, min_elevation, max_elevation, show_moon, fixed_sun });
+    if (this.config?.show_twilight !== show_twilight) this.showTwilight = show_twilight;
+    super.setConfig({ ...config, graph_height, min_elevation, max_elevation, show_moon, fixed_sun, show_twilight });
     if (this.isConnected && moonChanged) this.refresh();
   }
 
@@ -454,10 +456,13 @@ class HorizonCard extends LiveCard {
     if (action === "area" || action === "circle") {
       this.full = action === "circle";
       this.draw();
-    } else if (action === "fixed-sun") {
-      this.fixedSun = !this.fixedSun;
+    } else if (action === "fixed-sun" || action === "show-twilight") {
+      if (action === "fixed-sun") this.fixedSun = !this.fixedSun;
+      else this.showTwilight = !this.showTwilight;
       this.draw();
-      this.shadowRoot.querySelector('[data-action="fixed-sun"]')?.focus();
+      requestAnimationFrame(() => {
+        if (!this.shadowRoot.activeElement) this.shadowRoot.querySelector(`[data-action="${action}"]`)?.focus();
+      });
     } else if (action === "prev" || action === "next") {
       const input = this.shadowRoot.querySelector('[data-field="day"]');
       const date = offsetDate(this.selectedDate ?? this.data.today, action === "prev" ? -1 : 1);
@@ -472,10 +477,9 @@ class HorizonCard extends LiveCard {
     if (input.dataset.field === "day" && input.value && input.validity.valid) this.selectDate(input.value);
   }
 
-  chart() {
+  chart(twilight) {
     const { day, profile, azimuth, upper_limb, elevation, direct, today, phase_limits, moon } = this.data;
     const { min_elevation, max_elevation, show_moon } = this.config;
-    const twilight = this.config.show_twilight === true && Array.isArray(phase_limits);
     const path = twilight ? day.path.map(([time, az, , altitude]) => [time, az, altitude]) : day.path;
     const left = 39, right = 606, top = 12, bottom = top + this.graphSize.plot;
     const summit = path.reduce((best, item) => item[2] > best[2] ? item : best);
@@ -560,7 +564,8 @@ class HorizonCard extends LiveCard {
   }
 
   renderData() {
-    const { direct, day, upper_limb, azimuth, terrain, today, zone } = this.data;
+    const { direct, day, upper_limb, azimuth, terrain, today, zone, phase_limits } = this.data;
+    const twilight = this.showTwilight && Array.isArray(phase_limits);
     const degrees = value => new Intl.NumberFormat(this.lang === "no" ? "nb-NO" : "en",
       { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value) + "°";
     const currentYear = Number(today.slice(0, 4));
@@ -570,12 +575,12 @@ class HorizonCard extends LiveCard {
       <dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>` : "";
     return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
       <div class="controls">${toggler("area", this.l.area, !this.full)}${toggler("circle", this.l.circle, !!this.full)}
-        ${toggler("fixed-sun", this.l.fixedSun, this.fixedSun)}</div>
+        ${toggler("fixed-sun", this.l.fixedSun, this.fixedSun)}${toggler("show-twilight", this.l.showTwilight, this.showTwilight)}</div>
       ${this.dateControls(this.selectedDate ?? today, `${currentYear - 5}-01-01`, `${currentYear + 5}-12-31`)}
-      ${this.chart()}
+      ${this.chart(twilight)}
       <div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span>
         ${this.config.show_moon ? `<span class="moon-key"><i></i>${this.l.moon}</span>` : ""}
-        ${this.config.show_twilight === true ? `<span>${this.l.sunPath} (${this.l.sunCenter})</span>` + phaseOrder.slice(0, -1).reverse().map(phase =>
+        ${twilight ? `<span>${this.l.sunPath} (${this.l.sunCenter})</span>` + phaseOrder.slice(0, -1).reverse().map(phase =>
           `<span><i class="tone-${phase}"></i>${this.l[phase]}</span>`).join("") : ""}</div>
       <dl>${row(this.l.periods, periods)}</dl>
       ${live}`;
