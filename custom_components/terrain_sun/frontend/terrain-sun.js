@@ -8,7 +8,7 @@ const WORDS = {
   no: {
     title: "Tittel", graphHeight: "Grafhøyde", compact: "Kompakt", normal: "Normal", tall: "Høy",
     minElevation: "Nedre gradgrense", maxElevation: "Øvre gradgrense", autoElevation: "La feltet stå tomt for automatisk skalering.",
-    fixedSun: "Fast solbane", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
+    fixedSun: "Vis hele solbanen", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
     sunCenter: "solsentrum", invalidHeight: "Velg Kompakt, Normal eller Høy.",
     invalidLimits: "Gradgrensene må være mellom −90° og 90°, med nedre grense under øvre grense.",
     direct: "Direkte sol", terrain_shade: "Dagslys i terrengskygge", daylight: "Dagslengde ved fri horisont",
@@ -31,7 +31,7 @@ const WORDS = {
   en: {
     title: "Title", graphHeight: "Chart height", compact: "Compact", normal: "Normal", tall: "Tall",
     minElevation: "Lower elevation limit", maxElevation: "Upper elevation limit", autoElevation: "Leave blank for automatic scaling.",
-    fixedSun: "Fixed sun path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
+    fixedSun: "Show full sun path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
     sunCenter: "sun center", invalidHeight: "Choose Compact, Normal, or Tall.",
     invalidLimits: "Elevation limits must be between −90° and 90°, with the lower limit below the upper limit.",
     direct: "Direct sun", terrain_shade: "Daylight in terrain shade", daylight: "Daylight with a clear horizon",

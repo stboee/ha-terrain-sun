@@ -11,7 +11,7 @@ Krever Home Assistant **2026.11.2** eller nyere.
 3. Legg til **Terrain Sun** under **Innstillinger → Enheter og tjenester**. Velg `horizon.txt` fra PeakFinder (**Export → Horizon for Stellarium**).
 4. Last inn Home Assistant-fanen på nytt etter oppsettet. Rediger dashboardet, åpne **Legg til kort → Etter kort** og søk etter **Terrain Sun**.
 
-For en første gjennomgang kan du bruke [eksempelprofilen](examples/horizon.txt). Den er konstruert og bruker plasseringen fra Home Assistant. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Begge bruker tidssonen fra Home Assistant. For å bytte profil velger du **Konfigurer på nytt** på integrasjonen og laster opp en ny fil.
+For en første gjennomgang kan du bruke [eksempelprofilen fra Øyer](examples/horizon.txt), basert på vinkelverdier fra PeakFinder. Eksempelfilen bruker Home Assistant sin plassering. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Begge bruker tidssonen fra Home Assistant. For å bytte profil velger du **Konfigurer på nytt** på integrasjonen og laster opp en ny fil.
 
 Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på nytt når Marketplace ber om det. Terrengprofilen ligger i integrasjonens konfigurasjon og følger med ved oppdatering.
 
@@ -36,14 +36,14 @@ Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende Y
 | Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
 | Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder vanlig visning. Tomme felt skaleres automatisk. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
 | Vis skumring | `show_twilight` | Av. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
-| Fast solbane | `fixed_sun` | Av. Grafvinduet tilpasses så hele solbanen innenfor kompassutsnittet får plass. Begge aksene viser faktiske grader med lineær skala. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
+| Vis hele solbanen | `fixed_sun` | Av. Grafvinduet tilpasses så hele solbanen innenfor kompassutsnittet får plass. Begge aksene viser faktiske grader med lineær skala. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
 | Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
 
-I **Fast solbane** deler sol, terreng, skumringsbånd og måne samme høydeakse. Når grafvinduet tilpasses en annen dato, flytter terrengprofilen seg i bildet og kan fortsatt leses av i faktiske grader. Y-aksen tilpasses også i 360°-visningen.
+Med **Vis hele solbanen** deler sol, terreng, skumringsbånd og måne samme høydeakse. Når grafvinduet tilpasses en annen dato, flytter terrengprofilen seg i bildet og kan fortsatt leses av i faktiske grader. Y-aksen tilpasses også i 360°-visningen.
 
 ### Skjermbilder
 
-Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
+Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horizon.txt).
 
 #### Sol i dag
 
@@ -51,7 +51,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen](examples/horizon.txt).
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med Fast solbane, lineære akser og faktiske høydegrader">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer med hele solbanen og grader på begge aksene">
 
 #### Solåret
 
