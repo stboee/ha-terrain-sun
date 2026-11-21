@@ -41,6 +41,7 @@ class TerrainRuntime(DataUpdateCoordinator[dict]):
         )
         self.model = model
         self._days: OrderedDict[date, dict] = OrderedDict()
+        self._moon_paths: OrderedDict[int, list[list]] = OrderedDict()
         self._years: OrderedDict[int, dict] = OrderedDict()
         self._day_lock = asyncio.Lock()
         self._year_lock = asyncio.Lock()
@@ -55,6 +56,19 @@ class TerrainRuntime(DataUpdateCoordinator[dict]):
                     self._days.popitem(last=False)
             self._days.move_to_end(today)
             return self._days[today]
+
+    async def async_moon_path(self, day: dict) -> list[list]:
+        """Cache lunar paths for the dates viewed in the horizon card."""
+        start = day["start"]
+        async with self._day_lock:
+            if start not in self._moon_paths:
+                self._moon_paths[start] = await self.hass.async_add_executor_job(
+                    self.model.moon_path, start, day["end"]
+                )
+                if len(self._moon_paths) > 12:
+                    self._moon_paths.popitem(last=False)
+            self._moon_paths.move_to_end(start)
+            return self._moon_paths[start]
 
     def _calculate_year(self, year: int) -> dict:
         current = date(year, 1, 1)
@@ -146,6 +160,7 @@ type TerrainConfigEntry = ConfigEntry[TerrainRuntime]
         vol.Optional("date"): str,
         vol.Optional("year"): int,
         vol.Optional("moon"): bool,
+        vol.Optional("moon_path"): bool,
     }
 )
 @websocket_api.async_response
@@ -189,6 +204,8 @@ async def _async_get_data(hass, connection, message):
                     result["moon"] = await hass.async_add_executor_job(
                         runtime.model.moon_position, now
                     )
+                if message.get("moon_path"):
+                    result["moon_path"] = await runtime.async_moon_path(result["day"])
                 profile = runtime.model.horizon
                 result["profile"] = [
                     [0, profile.at(0)],

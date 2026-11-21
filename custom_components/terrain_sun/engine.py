@@ -202,6 +202,14 @@ class SolarModel:
             "elevation": moon.altitude,
         }
 
+    def moon_path(self, start: int, end: int) -> list[list]:
+        """Sample the Moon every five minutes through both local day boundaries."""
+        result = []
+        for stamp in (*range(start, end, 300), end):
+            position = self.moon_position(datetime.fromtimestamp(stamp, UTC))
+            result.append([stamp, position["azimuth"], position["elevation"]])
+        return result
+
     def solstices(self, year: int) -> list[dict[str, str]]:
         """Find the 90° and 270° apparent ecliptic longitude crossings."""
         events = []

@@ -20,7 +20,7 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 | Kort | Innhold | Type i YAML |
 |---|---|---|
 | **Sol i dag** | Status, neste overgang, døgnstripe, solperioder, dagslengde og utvidbare lysfaser. Viser endringer i direkte soltid fra i går, til i morgen og for siste og neste 7 dager. | `custom:terrain-sun-today` |
-| **Lokal horisont** | Datovelger med i dag som standard. Viser terreng, solbane og direkte solperioder med samlet varighet for valgt dato. Bytt mellom dagsutsnitt og 360°. | `custom:terrain-sun-horizon` |
+| **Lokal horisont** | Viser terreng, solbane og direkte solperioder for valgt dato. Velg mellom **Utsnitt**, **360°**, **Solbane** og **Månebane**. | `custom:terrain-sun-horizon` |
 | **Solåret** | Årsgraf i klokkeslett- og varighetsvisning, datovelger, døgnstripe, neste dato med tilsvarende soltid, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
 
 **Neste gang det er så lyst** sammenligner samlet direkte soltid for valgt dato med dagene etter neste solverv. Kortet viser datoen som ligger nærmest ved første tilbakekomst til omtrent samme soltid. Har valgt dato ingen direkte sol, viser kortet første kommende dato med direkte sol, innen ett år. I sjudagersradene sammenlignes dagens direkte soltid med datoene nøyaktig 7 dager før og etter.
@@ -29,17 +29,26 @@ Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du i
 
 ### Innstillinger for Lokal horisont
 
+| Visning | Utsnitt |
+|---|---|
+| **Utsnitt** | Terreng og solbane rundt retningen der sola står høyest. |
+| **360°** | Terreng og solbane rundt hele kompasset, med høydeaksen tilpasset terrengprofilen og solas toppunkt. |
+| **Solbane** | Hele solbanen for valgt døgn, også under terrenget. Begge aksene tilpasses banen og terrengprofilen i utsnittet. |
+| **Månebane** | Hele solbanen og månebanen for valgt døgn. Begge aksene utvides etter behov, og månebanen vises som en lilla kurve. |
+
+Banene går fra lokal midnatt til neste midnatt. Start og slutt kan ligge på forskjellige steder i grafen.
+
+**Vis skumring** er et eget valg i alle fire visninger. Fargebåndene vises innenfor grafens eksisterende gradgrenser. Aksene og kurvene beholder posisjon og skala når du veksler. Solbanen viser solsentrum, mens periodene med direkte sol beregnes ved øvre solrand mot terrenget.
+
 Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende YAML-feltene.
 
 | Innstilling | Felt i YAML | Standard og virkemåte |
 |---|---|---|
 | Grafhøyde | `graph_height` | Høy (`tall`). Velg eventuelt Kompakt (`compact`) eller Normal (`normal`). |
-| Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder vanlig visning. Tomme felt skaleres automatisk. Lås én grense for å styre hva som kommer med, eller begge for å sammenligne datoer med samme målestokk. |
-| Vis skumring | `show_twilight` | Av ved åpning. Knappen ved siden av **Vis hele solbanen** slår fargebåndene av og på i kortet. Innstillingen angir startvalget. Fargebåndene følger astronomiske grenser og fargene i Solåret. Grafen viser solsentrum i denne visningen. Direkte sol beregnes ved øvre solrand mot terrenget. |
-| Vis hele solbanen | `fixed_sun` | Av. Grafvinduet tilpasses så hele solbanen innenfor kompassutsnittet får plass. Begge aksene viser faktiske grader med lineær skala. Knappen i kortet veksler visningen, og innstillingen angir startvalget. Den tidligere nøkkelen `center_sun` støttes som alias. |
-| Vis månen | `show_moon` | Av. For dagens dato vises månens posisjon akkurat nå når den er innenfor figuren, både over og under terrenglinjen. Kortet beregner posisjonen lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
-
-Med **Vis hele solbanen** deler sol, terreng, skumringsbånd og måne samme høydeakse. Når grafvinduet tilpasses en annen dato, flytter terrengprofilen seg i bildet og kan fortsatt leses av i faktiske grader. Y-aksen tilpasses også i 360°-visningen.
+| Nedre og øvre gradgrense | `min_elevation`, `max_elevation` | Gjelder **Utsnitt** og **360°**. Tomme felt skaleres automatisk. Lås begge for å sammenligne datoer med samme målestokk. |
+| Startvisning | `horizon_view` | Utsnitt (`area`). De andre valgene er 360° (`circle`), Solbane (`sun`) og Månebane (`moon`). Eldre kort med `fixed_sun: true` eller aliaset `center_sun: true` åpner i **Solbane** dersom `horizon_view` ikke er angitt. |
+| Vis skumring | `show_twilight` | Av ved åpning. Båndene bruker samme astronomiske grenser og farger som **Solåret**. |
+| Vis månen | `show_moon` | Av. Viser en markør for månens nåværende posisjon på dagens dato når den er innenfor figuren. **Månebane** beregner hele kurven for valgt døgn uavhengig av denne innstillingen. Måneposisjonene beregnes lokalt med [Astronomy Engine](https://pypi.org/project/astronomy-engine/). |
 
 ### Skjermbilder
 
@@ -51,7 +60,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horiz
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer med knappene Vis hele solbanen og Vis skumring">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer i visningen Månebane, med begge banene og skumringsbåndene">
 
 #### Solåret
 

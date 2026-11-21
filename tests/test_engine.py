@@ -85,6 +85,22 @@ class SolarTest(unittest.TestCase):
         )
         self.assertGreater(upper_limb, elevation)
 
+    def test_moon_path_includes_both_local_midnights_on_clock_changes(self):
+        model = SolarModel(61.115, 10.466, FLAT, OSLO)
+        for selected, hours in ((date(2026, 3, 29), 23), (date(2026, 10, 25), 25)):
+            with self.subTest(day=selected):
+                day = model.day(selected)
+                start, end = day["start"], day["end"]
+                path = model.moon_path(start, end)
+                self.assertEqual([point[0] for point in path], list(range(start, end + 1, 300)))
+                self.assertEqual(len(path), hours * 12 + 1)
+                stamp, azimuth, elevation = path[len(path) // 2]
+                self.assertEqual(
+                    {"azimuth": azimuth, "elevation": elevation},
+                    model.moon_position(datetime.fromtimestamp(stamp, OSLO)),
+                )
+                self.assertTrue(all(0 <= point[1] < 360 and abs(point[2]) <= 90 for point in path))
+
     def test_ridge_splits_direct_sun(self):
         horizon = Horizon(
             (0, 130, 155, 175, 185, 205, 230, 315), (1, 1, 1, 60, 60, 1, 1, 1)
