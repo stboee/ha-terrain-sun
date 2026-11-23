@@ -7,6 +7,8 @@ const TYPES = {
 const WORDS = {
   no: {
     title: "Tittel", graphHeight: "Grafhøyde", compact: "Kompakt", normal: "Normal", tall: "Høy",
+    profileChoice: "Profil", compareProfile: "Sammenlign med", followDefault: "Følg standardprofil", noComparison: "Ingen",
+    directDifference: "Forskjell i direkte soltid", sameDuration: "Samme soltid", transition: "Neste overgang", dailySun: "Direkte sol per dag (timer)",
     minElevation: "Nedre gradgrense", maxElevation: "Øvre gradgrense", autoElevation: "La feltet stå tomt for automatisk skalering.",
     horizonView: "Startvisning", viewMode: "Grafvisning", invalidView: "Velg en gyldig startvisning.",
     moonPath: "Månebane", showTwilight: "Vis skumring", showMoon: "Vis månen", moon: "Månen",
@@ -35,6 +37,8 @@ const WORDS = {
   },
   en: {
     title: "Title", graphHeight: "Chart height", compact: "Compact", normal: "Normal", tall: "Tall",
+    profileChoice: "Profile", compareProfile: "Compare with", followDefault: "Follow default profile", noComparison: "None",
+    directDifference: "Difference in direct sun", sameDuration: "Same duration", transition: "Next transition", dailySun: "Direct sun per day (hours)",
     minElevation: "Lower elevation limit", maxElevation: "Upper elevation limit", autoElevation: "Leave blank for automatic scaling.",
     horizonView: "Initial view", viewMode: "Chart view", invalidView: "Choose a valid initial view.",
     moonPath: "Moon path", showTwilight: "Show twilight", showMoon: "Show the moon", moon: "Moon",
@@ -67,7 +71,7 @@ const STYLES = /* css */ `
   :host {display:block;min-width:0;container-type:inline-size}
   ha-card {
     --ts-sun:#f5ba4c;--ts-day:#a3cbd5;--ts-civil:#709bab;--ts-nautical:#507382;
-    --ts-astronomical:#365260;--ts-night:#223742;--ts-moon:#9664ce;
+    --ts-astronomical:#365260;--ts-night:#223742;--ts-moon:#9664ce;--ts-compare:#bc5265;
     --ts-line:var(--divider-color,#d7dfe3);--ts-muted:var(--secondary-text-color,#56636b);
     --ts-ink:var(--primary-text-color,#243139);--ts-accent:var(--primary-color,#007c8c);
     color:var(--ts-ink);overflow:hidden;
@@ -98,6 +102,17 @@ const STYLES = /* css */ `
   .controls .view-modes {display:flex;flex-wrap:wrap;gap:6px;margin-inline-end:6px;min-width:0}
   .controls .spacer {flex:1}
   .controls label {display:flex;align-items:center;gap:5px}
+  .profile-controls {column-gap:12px}
+  .profile-controls label, .profile-controls select {min-width:0;max-width:100%}
+  .profile-label {font-size:.82rem;color:var(--ts-muted);margin:0 0 8px;overflow-wrap:anywhere}
+  .profile-heading {margin:8px 0 2px;font-size:.86rem;font-weight:600;overflow-wrap:anywhere}
+  .compare-table {width:100%;border-collapse:collapse;margin-top:9px;table-layout:fixed;font-size:.85rem}
+  .compare-table th, .compare-table td {padding:7px 5px;text-align:start;vertical-align:top;overflow-wrap:anywhere;border-bottom:1px solid var(--ts-line)}
+  .compare-table th:first-child {width:42%;padding-inline-start:0}
+  .compare-table thead th {font-weight:650}
+  .compare-table th[scope="row"] {font-weight:400;color:var(--ts-muted)}
+  .compare-table td {font-weight:550;font-variant-numeric:tabular-nums}
+  .compare-label {display:none}
   .year-plot, .horizon-plot {width:100%;height:auto;display:block;overflow:visible}
   .axis {fill:var(--ts-muted);font:13px system-ui,sans-serif}
   .grid {stroke:var(--ts-line);stroke-width:1;vector-effect:non-scaling-stroke}
@@ -109,6 +124,11 @@ const STYLES = /* css */ `
   .shade-line {stroke:var(--ts-nautical);stroke-width:1.7;stroke-dasharray:4 3;fill:none;vector-effect:non-scaling-stroke}
   .terrain-fill {fill:var(--ts-civil);opacity:.24}
   .terrain-line {stroke:var(--ts-nautical);stroke-width:1.6;fill:none;vector-effect:non-scaling-stroke}
+  .terrain-line.secondary, .annual-line.secondary {stroke:var(--ts-compare);stroke-dasharray:5 3}
+  .annual-line {stroke:var(--ts-nautical);stroke-width:2;fill:none;vector-effect:non-scaling-stroke}
+  .legend .profile-key {width:14px;height:0;border-top:2px solid var(--ts-nautical);border-radius:0}
+  .legend .profile-key.secondary {border-color:var(--ts-compare);border-top-style:dashed}
+  .horizon-pair {display:grid;gap:10px}
   .twilight-band {fill-opacity:.44}
   .moon-line {stroke:var(--ts-moon);stroke-width:2;stroke-linecap:round;fill:none;vector-effect:non-scaling-stroke}
   .moon-marker {fill:#eef2f5;stroke:#435864;stroke-width:1.4;vector-effect:non-scaling-stroke}
@@ -134,6 +154,16 @@ const STYLES = /* css */ `
   .tone-astronomical {fill:var(--ts-astronomical);background:var(--ts-astronomical)}
   .tone-night {fill:var(--ts-night);background:var(--ts-night)}
   @container (max-width:470px) { .axis {font-size:18px} }
+  @container (max-width:420px) {
+    .compare-table thead {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+    .compare-table tbody, .compare-table tr, .compare-table th, .compare-table td {display:block}
+    .compare-table th:first-child {width:auto}
+    .compare-table th[scope="row"] {border:0;padding-bottom:3px}
+    .compare-table td {display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+    .compare-table td:not(:last-child) {border:0}
+    .compare-label {display:inline;font-weight:400;color:var(--ts-muted)}
+  }
+  @container (min-width:780px) { .horizon-pair {grid-template-columns:repeat(2,minmax(0,1fr))} }
   @container (max-width:360px) { .body {padding-inline:12px} }
 `;
 
@@ -172,9 +202,20 @@ function localDate(stamp, zone) {
 
 class SolarCard extends HTMLElement {
   static getConfigForm() {
+    const words = pickerWords();
+    const states = document.querySelector("home-assistant")?.hass?.states ?? {};
+    const profiles = Object.values(states).find(state => state.attributes.terrain_sun_profiles)?.attributes.terrain_sun_profiles;
+    const options = Object.entries(profiles ?? {}).map(([label, value]) => ({ label, value }));
+    const schema = [{ name: "title", selector: { text: {} } }];
+    if (options.length > 1) {
+      schema.push(...[["profile", words.followDefault], ["compare_profile", words.noComparison]].map(([name, label]) => ({
+        name, selector: { select: { mode: "dropdown", options: [{ value: "", label }, ...options] } },
+      })));
+    }
+    const labels = { title: words.title, profile: words.profileChoice, compare_profile: words.compareProfile };
     return {
-      schema: [{ name: "title", selector: { text: {} } }],
-      computeLabel: () => pickerWords().title,
+      schema,
+      computeLabel: field => labels[field.name],
     };
   }
 
@@ -186,16 +227,24 @@ class SolarCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const changed = this.config?.profile !== config.profile || this.config?.compare_profile !== config.compare_profile;
+    if (changed) {
+      this.profileOverride = undefined;
+      this.compareOverride = undefined;
+    }
     this.config = config;
     this.draw();
+    if (this.isConnected && (changed || !this.data)) this.refresh();
   }
 
   set hass(hass) {
     const changed = this._hass?.connection !== hass.connection;
+    const selector = this.catalogue?.selector;
+    const profilesChanged = selector && this._hass?.states?.[selector] !== hass.states?.[selector];
     this._hass = hass;
     const locale = hass.locale?.language ?? hass.language ?? "en";
     this.lang = isNorwegian(locale) ? "no" : "en";
-    if (this.isConnected && (changed || !this.data) && !this.pending && !this.error) this.refresh();
+    if (this.isConnected && (changed || profilesChanged || (!this.data && !this.pending && !this.error))) this.refresh();
   }
 
   get l() { return WORDS[this.lang ?? "en"]; }
@@ -214,27 +263,85 @@ class SolarCard extends HTMLElement {
     if (event.target.dataset.action === "retry") this.refresh();
   }
 
-  handleChange() {}
+  handleChange(event) {
+    const { dataset, value } = event.target;
+    if (dataset.field === "profile") this.profileOverride = value;
+    else if (dataset.field === "compare") this.compareOverride = value;
+    else return;
+    this.refresh();
+  }
 
   async load() {}
 
+  async loadProfiles(view, args) {
+    const catalogue = await request(this._hass, "profiles");
+    const requested = this.profileOverride ?? this.config.profile ?? "";
+    const compare = this.compareOverride ?? this.config.compare_profile ?? "";
+    const primary = catalogue.profiles.find(profile => profile.id === requested)
+      ?? catalogue.profiles.find(profile => profile.id === catalogue.default_profile);
+    const secondary = catalogue.profiles.find(profile => profile.id === compare && profile.id !== primary.id);
+    if (secondary && (view === "now" || view === "horizon") && !args.date) args = { ...args, date: catalogue.today };
+    if (secondary && view === "year" && !args.year) args = { ...args, year: Number(catalogue.today.slice(0, 4)) };
+    const read = profile => request(this._hass, view, { ...args, profile_id: profile.id });
+    const [data, comparison] = await Promise.all([read(primary), secondary ? read(secondary) : null]);
+    return { data, comparison, catalogue, primary, secondary, followsDefault: primary.id !== requested };
+  }
+
+  applyData(result) {
+    Object.assign(this, result);
+  }
+
   async refresh() {
-    if (!this._hass || this.pending) return;
+    if (!this._hass || !this.config) return;
+    this.refreshVersion = (this.refreshVersion ?? 0) + 1;
+    if (this.pending) return;
     this.pending = true;
     this.error = false;
     this.draw();
-    try {
-      await this.load();
-    } catch (error) {
-      this.error = true;
-    } finally {
-      this.pending = false;
-      this.draw();
-    }
+    let version;
+    do {
+      version = this.refreshVersion;
+      try {
+        const result = await this.load();
+        if (version === this.refreshVersion) this.applyData(result);
+      } catch (error) {
+        if (version === this.refreshVersion) this.error = true;
+      }
+    } while (version !== this.refreshVersion);
+    this.pending = false;
+    this.draw();
   }
 
   get title() {
     return escape(this.config?.title || TYPES[this.localName][this.lang === "no" ? 0 : 1]);
+  }
+
+  profileControls() {
+    if (this.catalogue.profiles.length === 1) return `<p class="profile-label">${escape(this.primary.name)}</p>`;
+    const options = (current, profiles) => profiles.map(profile =>
+      `<option value="${escape(profile.id)}" ${profile.id === current ? "selected" : ""}>${escape(profile.name)}</option>`).join("");
+    const available = this.catalogue.profiles.filter(profile => profile.id !== this.primary.id);
+    const defaultName = this.catalogue.profiles.find(profile => profile.id === this.catalogue.default_profile).name;
+    return `<div class="controls profile-controls">
+      <label>${this.l.profileChoice} <select data-field="profile"><option value="" ${this.followsDefault ? "selected" : ""}>${this.l.followDefault} (${escape(defaultName)})</option>
+        ${options(this.followsDefault ? "" : this.primary.id, this.catalogue.profiles)}</select></label>
+      <label>${this.l.compareProfile} <select data-field="compare"><option value="">${this.l.noComparison}</option>
+        ${options(this.secondary?.id, available)}</select></label>
+    </div>`;
+  }
+
+  comparisonTable(rows, label = this.l.compareProfile) {
+    const names = [escape(this.primary.name), escape(this.secondary.name)];
+    return `<table class="compare-table" aria-label="${label}"><thead><tr><th scope="col" aria-label="${label}"></th>${names.map(name =>
+      `<th scope="col">${name}</th>`).join("")}</tr></thead><tbody>${rows.map(([heading, a, b]) =>
+      `<tr><th scope="row">${heading}</th>${[a, b].map((value, index) =>
+        `<td><span class="compare-label" aria-hidden="true">${names[index]}</span><span>${value}</span></td>`).join("")}</tr>`).join("")}
+    </tbody></table>`;
+  }
+
+  profileLegend() {
+    return `<div class="legend"><span><i class="profile-key"></i>${escape(this.primary.name)}</span>
+      <span><i class="profile-key secondary"></i>${escape(this.secondary.name)}</span></div>`;
   }
 
   formatClock(timestamp, zone, end) {
@@ -277,13 +384,13 @@ class SolarCard extends HTMLElement {
       `${this.formatClock(start, zone)}–${this.formatClock(end, zone, day.end)}`).join(" · ") || "—";
   }
 
-  legend() {
-    return `<div class="legend">${legendOrder.map(key =>
+  legend(comparison = false) {
+    return `<div class="legend">${comparison ? "" : legendOrder.map(key =>
       `<span><i class="tone-${key}"></i>${key === "daylight" ? this.l.terrain_shade : this.l[key]}</span>`).join("")}
       <span><i class="season-key"></i>${this.l.solstices}</span><span><i class="season-key equinox"></i>${this.l.equinoxes}</span></div>`;
   }
 
-  timeline(day, zone, now = null) {
+  timeline(day, zone, now = null, showClock = true) {
     const duration = day.end - day.start;
     if (!duration) return "";
     const spans = day.bands.map(([start, end, phase, direct]) =>
@@ -292,7 +399,7 @@ class SolarCard extends HTMLElement {
       ? `<i style="left:${f((now - day.start) / duration * 100)}%"></i>` : "";
     const labels = [0, .25, .5, .75, 1].map(fraction =>
       `<span>${this.formatClock(day.start + duration * fraction, zone, day.end)}</span>`).join("");
-    return `<div class="strip" aria-label="${this.l.dayTrack}">${spans}${marker}</div><div class="strip-labels">${labels}</div>`;
+    return `<div class="strip" aria-label="${this.l.dayTrack}">${spans}${marker}</div>${showClock ? `<div class="strip-labels">${labels}</div>` : ""}`;
   }
 
   draw() {
@@ -340,7 +447,9 @@ class DatedCard extends SolarCard {
 
   handleChange(event) {
     const input = event.target;
-    if (input.dataset.field === "day" && input.value && input.validity.valid) this.selectDate(input.value);
+    if (input.dataset.field === "day") {
+      if (input.value && input.validity.valid) this.selectDate(input.value);
+    } else super.handleChange(event);
   }
 }
 
@@ -348,55 +457,72 @@ class TodayCard extends DatedCard {
   getCardSize() { return 5; }
 
   async load() {
-    let date;
-    do {
-      date = this.selectedDate;
-      try {
-        const data = await request(this._hass, "now", date ? { date } : {});
-        if (date === this.selectedDate) this.data = data;
-      } catch (error) {
-        if (date === this.selectedDate) throw error;
-      }
-    } while (date !== this.selectedDate);
+    return this.loadProfiles("now", this.selectedDate ? { date: this.selectedDate } : {});
   }
 
-  renderData() {
-    const { day, direct, next, zone, time, today, yesterday_delta, tomorrow_delta, last_week_delta, next_week_delta } = this.data;
-    const opened = this.shadowRoot.querySelector("details")?.open;
+  dailyRows(data) {
+    const { day, direct, next, zone, today, yesterday_delta, tomorrow_delta, last_week_delta, next_week_delta } = data;
     const isToday = day.date === today;
     const nextDate = next ? localDate(next * 1000, zone) : null;
     const nextLabel = next
       ? (nextDate === today ? "" : this.formatDate(nextDate) + " · ") + this.formatClock(next, zone)
       : this.l.noChange;
-    return `
-      <header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+    const transitionLabel = direct ? this.l.nextShade : this.l.nextSun;
+    return [
+      ...(isToday ? [this.comparison ? [this.l.transition, next ? `${transitionLabel} · ${nextLabel}` : nextLabel]
+        : [transitionLabel, nextLabel]] : []),
+      [this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, zone) : this.l.noSun],
+      [this.l.direct, this.formatDuration(day.totals.direct)],
+      [this.l.daylight, this.formatDuration(day.totals.daylight)],
+      [this.l.terrain_shade, this.formatDuration(day.totals.terrain_shade)],
+      [isToday ? this.l.fromYesterday : this.l.fromPreviousDay, this.formatDelta(yesterday_delta)],
+      [isToday ? this.l.toTomorrow : this.l.toFollowingDay, this.formatDelta(tomorrow_delta)],
+      [this.l.lastWeek, this.formatDelta(last_week_delta)],
+      [this.l.nextWeek, this.formatDelta(next_week_delta)],
+    ];
+  }
+
+  phaseRows({ day, zone }) {
+    const phases = phaseOrder.map(phase => {
+      const periods = [];
+      for (const [start, end, name] of day.bands) {
+        if (name !== phase) continue;
+        if (periods.at(-1)?.[1] === start) periods.at(-1)[1] = end;
+        else periods.push([start, end]);
+      }
+      return [this.l[phase === "daylight" ? "daylight_phase" : phase], this.formatPeriods(periods, day, zone)];
+    });
+    return [...phases, [this.l.golden, this.formatPeriods(day.golden, day, zone)]];
+  }
+
+  renderData() {
+    const { day, today } = this.data;
+    const opened = this.shadowRoot.querySelector("details")?.open;
+    const chart = (data, profile, showClock) => `${this.comparison ? `<h3 class="profile-heading">${escape(profile.name)}</h3>` : ""}
+      ${data.day.date === data.today ? `<p class="status ${data.direct ? "sun" : ""}"><span></span>${data.direct ? this.l.sunNow : this.l.behind}</p>` : ""}
+      ${this.timeline(data.day, data.zone, data.time ?? null, showClock)}`;
+    const daily = this.dailyRows(this.data);
+    const phases = this.phaseRows(this.data);
+    const other = this.comparison;
+    let values = `<dl>${daily.map(args => row(...args)).join("")}</dl>`;
+    let phaseValues = `<dl>${phases.map(args => row(...args)).join("")}</dl>`;
+    if (other) {
+      const otherDaily = this.dailyRows(other);
+      const otherPhases = this.phaseRows(other);
+      const delta = other.day.totals.direct - day.totals.direct;
+      const difference = Math.round(Math.abs(delta) / 60)
+        ? `${escape(this.secondary.name)} ${this.formatDelta(delta)}` : this.l.sameDuration;
+      const dailyValues = new Map(daily), otherValues = new Map(otherDaily);
+      const labels = new Set([...dailyValues.keys(), ...otherValues.keys()]);
+      values = this.comparisonTable([...labels].map(label => [label, dailyValues.get(label) ?? "—", otherValues.get(label) ?? "—"]))
+        + `<dl>${row(this.l.directDifference, difference)}</dl>`;
+      phaseValues = this.comparisonTable(phases.map(([label, value], i) => [label, value, otherPhases[i][1]]), this.l.phases);
+    }
+    return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+      ${this.profileControls()}
       ${this.dateControls(this.selectedDate ?? today, ...this.dateBounds())}
-      ${isToday ? `<p class="status ${direct ? "sun" : ""}"><span></span>${direct ? this.l.sunNow : this.l.behind}</p>` : ""}
-      ${this.timeline(day, zone, isToday ? time : null)}
-      <dl>
-        ${isToday ? row(direct ? this.l.nextShade : this.l.nextSun, nextLabel) : ""}
-        ${row(this.l.periods, day.direct.length ? this.formatPeriods(day.direct, day, zone) : this.l.noSun)}
-        ${row(this.l.direct, this.formatDuration(day.totals.direct))}
-        ${row(this.l.daylight, this.formatDuration(day.totals.daylight))}
-        ${row(this.l.terrain_shade, this.formatDuration(day.totals.terrain_shade))}
-        ${row(isToday ? this.l.fromYesterday : this.l.fromPreviousDay, this.formatDelta(yesterday_delta))}
-        ${row(isToday ? this.l.toTomorrow : this.l.toFollowingDay, this.formatDelta(tomorrow_delta))}
-        ${row(this.l.lastWeek, this.formatDelta(last_week_delta))}
-        ${row(this.l.nextWeek, this.formatDelta(next_week_delta))}
-      </dl>
-      <details ${opened ? "open" : ""}><summary>${this.l.phases}</summary>
-        <dl>${phaseOrder.map(phase => {
-          const periods = [];
-          for (const [start, end, name] of day.bands) {
-            if (name !== phase) continue;
-            if (periods.at(-1)?.[1] === start) periods.at(-1)[1] = end;
-            else periods.push([start, end]);
-          }
-          return row(this.l[phase === "daylight" ? "daylight_phase" : phase], this.formatPeriods(periods, day, zone));
-        }).join("")}
-        ${row(this.l.golden, this.formatPeriods(day.golden, day, zone))}
-        </dl>
-      </details>`;
+      ${chart(this.data, this.primary, !other)}${other ? chart(other, this.secondary, true) : ""}
+      ${values}<details ${opened ? "open" : ""}><summary>${this.l.phases}</summary>${phaseValues}</details>`;
   }
 }
 
@@ -422,13 +548,25 @@ function pathBearingRange(path) {
   return [start, start + high - low];
 }
 
-function fitPathBearings(sun, moon) {
-  const solar = pathBearingRange(sun);
-  if (!moon.length || solar[1] - solar[0] >= 360) return solar;
-  const lunar = pathBearingRange(moon);
-  const span = ([start, stop]) => stop - start;
-  return [-360, 0, 360].map(turn => [Math.min(solar[0], lunar[0] + turn), Math.max(solar[1], lunar[1] + turn)])
-    .reduce((best, candidate) => span(candidate) < span(best) ? candidate : best);
+function fitBearingRanges(ranges) {
+  const occupied = ranges.map(([begin, end]) => [normalize(begin), end - begin]);
+  // Try a cut at the start of each occupied arc and keep the tightest enclosure.
+  let best = [0, 360];
+  for (const [start] of occupied) {
+    const span = Math.max(...occupied.map(([begin, length]) => normalize(begin - start) + length));
+    if (span < best[1] - best[0]) best = [start, start + span];
+  }
+  return best;
+}
+
+function horizonArc(profile, start, stop, bearing) {
+  const arc = [[start, horizonElevation(profile, start)], [stop, horizonElevation(profile, stop)]];
+  for (const [angle, height] of profile) {
+    if (angle === 360) continue;
+    const projected = bearing(angle);
+    if (projected > start && projected < stop) arc.push([projected, height]);
+  }
+  return arc.sort((a, b) => a[0] - b[0]);
 }
 
 function pathSegments(path, bearing, start, stop) {
@@ -458,7 +596,7 @@ function pathSegments(path, bearing, start, stop) {
 
 class HorizonCard extends DatedCard {
   static getConfigForm() {
-    const { schema } = super.getConfigForm();
+    const { schema, computeLabel } = super.getConfigForm();
     const words = pickerWords();
     const labels = {
       title: words.title, graph_height: words.graphHeight, min_elevation: words.minElevation,
@@ -478,7 +616,7 @@ class HorizonCard extends DatedCard {
         { name: "show_twilight", selector: { boolean: {} } },
         { name: "show_moon", selector: { boolean: {} } },
       ],
-      computeLabel: field => labels[field.name],
+      computeLabel: field => labels[field.name] ?? computeLabel(field),
       computeHelper: field => field.selector?.number ? words.autoElevation : undefined,
     };
   }
@@ -512,20 +650,11 @@ class HorizonCard extends DatedCard {
   }
 
   async load() {
-    // Date and display settings can change while a request is in flight.
-    let date, moon, moon_path;
-    const current = () => date === this.selectedDate && moon === this.config.show_moon && moon_path === this.wantsMoonPath;
-    do {
-      date = this.selectedDate;
-      moon = this.config.show_moon;
-      moon_path = this.wantsMoonPath;
-      try {
-        const data = await request(this._hass, this.view, { ...(date && { date }), moon, ...(moon_path && { moon_path }) });
-        if (current()) this.data = data;
-      } catch (error) {
-        if (current()) throw error;
-      }
-    } while (!current());
+    return this.loadProfiles(this.view, {
+      ...(this.selectedDate && { date: this.selectedDate }),
+      moon: this.config.show_moon,
+      ...(this.wantsMoonPath && { moon_path: true }),
+    });
   }
 
   handleClick(event) {
@@ -536,7 +665,7 @@ class HorizonCard extends DatedCard {
         if (action === this.mode) return;
         this.mode = action;
       } else this.showTwilight = !this.showTwilight;
-      if (this.wantsMoonPath && !this.data.moon_path && !this.pending) this.refresh();
+      if (modeButton && this.wantsMoonPath && (!this.data.moon_path || (this.comparison && !this.comparison.moon_path))) this.refresh();
       else this.draw();
     } else super.handleClick(event);
   }
@@ -551,33 +680,27 @@ class HorizonCard extends DatedCard {
     }
   }
 
-  chart(twilight) {
-    const { day, profile, azimuth, elevation, direct, today, phase_limits, moon } = this.data;
-    const { min_elevation, max_elevation, show_moon } = this.config;
-    const path = day.path.map(([time, az, , altitude]) => [time, az, altitude]);
-    const lunarPath = this.wantsMoonPath ? this.data.moon_path : [];
+  chartGeometry(datasets) {
+    const { min_elevation, max_elevation } = this.config;
     const fitPath = this.mode === "sun" || this.wantsMoonPath;
     const left = 39, right = 606, top = 12, bottom = top + this.graphSize.plot;
-    const summit = path.reduce((best, item) => item[2] > best[2] ? item : best);
-    const center = summit[1];
-    const unwrap = angle => center + normalize(angle - center + 180) - 180;
-    const activeAz = path.filter(point => point[2] >= Math.min(-4, summit[2] - 1)).map(point => unwrap(point[1]));
-    const [leftmost, rightmost] = fitPath ? fitPathBearings(path, lunarPath) : [Math.min(...activeAz), Math.max(...activeAz)];
+    const solar = datasets.map(data => data.day.path.map(([time, az, , altitude]) => [time, az, altitude]));
+    const lunar = this.wantsMoonPath ? datasets.map(data => data.moon_path) : [];
+    const summits = solar.map(path => path.reduce((best, sample) => sample[2] > best[2] ? sample : best));
+    const ranges = fitPath ? [...solar, ...lunar].map(pathBearingRange) : solar.map((path, index) => {
+      const [, center, height] = summits[index];
+      const active = path.filter(point => point[2] >= Math.min(-4, height - 1)).map(([, az]) => center + bearingDelta(center, az));
+      return [Math.min(...active), Math.max(...active)];
+    });
+    const [leftmost, rightmost] = fitBearingRanges(ranges);
     const zoomMin = Math.floor((leftmost - 18) / 30) * 30;
     const zoomMax = Math.ceil((rightmost + 18) / 30) * 30;
     const full = this.mode === "circle" || zoomMax - zoomMin >= 360;
     const [start, stop] = full ? [0, 360] : [zoomMin, zoomMax];
     const bearing = angle => start + normalize(angle - start);
-    const profileArc = [[start, horizonElevation(profile, start)]];
-    for (const [angle, height] of profile) {
-      if (angle === 360) continue;
-      const projected = bearing(angle);
-      if (projected > start && projected < stop) profileArc.push([projected, height]);
-    }
-    profileArc.push([stop, horizonElevation(profile, stop)]);
-    profileArc.sort((a, b) => a[0] - b[0]);
-    const profileHeights = profileArc.map(point => point[1]);
-    const pathHeights = fitPath ? [...path, ...lunarPath].map(point => point[2]) : [summit[2]];
+    const arcs = datasets.map(data => horizonArc(data.profile, start, stop, bearing));
+    const profileHeights = arcs.flatMap(arc => arc.map(point => point[1]));
+    const pathHeights = fitPath ? [...solar, ...lunar].flatMap(path => path.map(point => point[2])) : summits.map(point => point[2]);
     const lowHeights = fitPath ? [...profileHeights, ...pathHeights] : profileHeights;
     const autoLow = Math.max(-90, Math.min(-8, Math.floor((Math.min(...lowHeights) - 2) / 5) * 5));
     const autoHigh = Math.min(90, Math.max(10, Math.ceil((Math.max(...pathHeights, ...profileHeights) + 2) / 5) * 5));
@@ -586,7 +709,17 @@ class HorizonCard extends DatedCard {
     const high = fitPath ? autoHigh : max_elevation ?? Math.max(autoHigh, Math.min(90, low + 5));
     const x = angle => left + (angle - start) / (stop - start) * (right - left);
     const y = altitude => bottom - (altitude - low) / (high - low) * (bottom - top);
-    const line = profileArc.map(([az, ele], index) => `${index ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
+    return { start, stop, low, high, left, right, top, bottom, x, y, bearing, fitPath, arcs, solar, lunar };
+  }
+
+  chart(twilight, geometry, index = 0, overlay = false) {
+    const data = index ? this.comparison : this.data;
+    const { day, azimuth, elevation, direct, today, phase_limits, moon } = data;
+    const { start, stop, low, high, left, right, top, bottom, x, y, bearing, fitPath, arcs, solar, lunar } = geometry;
+    const path = solar[index], lunarPath = lunar[index] ?? [];
+    const arcLine = arc => arc.map(([az, ele], point) => `${point ? "L" : "M"}${f(x(az))},${f(y(ele))}`).join("");
+    const line = arcLine(arcs[index]);
+    const otherLine = overlay ? arcLine(arcs[1]) : "";
     const grid = [];
     const span = high - low;
     const verticalStep = span > (fitPath ? 80 : 45) ? 20 : span > 20 ? 10 : span > 8 ? 5 : span >= 3 ? 2 : 1;
@@ -621,16 +754,19 @@ class HorizonCard extends DatedCard {
     const sunMarker = day.date === today && inView(now, elevation)
       ? `<circle class="sun-marker" cx="${f(x(now))}" cy="${f(y(elevation))}" r="5.7" fill="var(${direct ? "--ts-sun" : "--ts-nautical"})" stroke="#fff" stroke-width="1.3"/>` : "";
     const moonBearing = bearing(moon?.azimuth);
-    const moonAltitude = day.date === today && show_moon ? moon?.elevation : undefined;
+    const moonAltitude = day.date === today && this.config.show_moon ? moon?.elevation : undefined;
     const moonMarker = inView(moonBearing, moonAltitude)
       ? `<circle class="moon-marker" cx="${f(x(moonBearing))}" cy="${f(y(moonAltitude))}" r="7"><title>${this.l.moon}</title></circle>` : "";
-    return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${this.l.profile} · ${this.l.sunPath}${lunarLine ? ` · ${this.l.moonPath}` : ""}${moonMarker ? ` · ${this.l.moon}` : ""}">
-      <defs><clipPath id="horizon-clip"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
-      <g clip-path="url(#horizon-clip)">${bands}</g>
+    const clip = `horizon-clip-${index}`;
+    const name = escape((index ? this.secondary : this.primary).name);
+    return `<svg class="horizon-plot" viewBox="0 0 620 ${bottom + 32}" role="img" aria-label="${name} · ${this.l.profile} · ${this.l.sunPath}${lunarLine ? ` · ${this.l.moonPath}` : ""}${moonMarker ? ` · ${this.l.moon}` : ""}">
+      <defs><clipPath id="${clip}"><rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}"/></clipPath></defs>
+      <g clip-path="url(#${clip})">${bands}</g>
       ${grid.join("")}
-      <g clip-path="url(#horizon-clip)">
+      <g clip-path="url(#${clip})">
         <path class="terrain-fill" d="${line}V${bottom}H${left}Z"/>
         <path class="terrain-line" d="${line}"/>
+        ${otherLine ? `<path class="terrain-line secondary" d="${otherLine}"/>` : ""}
         <path class="shade-line" d="${paths.shade.join("")}"/>
         <path class="sun-line" d="${paths.sun.join("")}"/>
         ${lunarLine ? `<path class="moon-line" d="${lunarLine}"/>` : ""}
@@ -641,25 +777,40 @@ class HorizonCard extends DatedCard {
   }
 
   renderData() {
-    const { day, upper_limb, azimuth, terrain, today, phase_limits } = this.data;
+    const { day, today, phase_limits } = this.data;
+    const other = this.comparison;
     const twilight = this.showTwilight && Array.isArray(phase_limits);
-    const waitingForMoon = this.wantsMoonPath && !this.data.moon_path;
+    const waitingForMoon = this.wantsMoonPath && (!this.data.moon_path || (other && !other.moon_path));
     const degrees = value => new Intl.NumberFormat(this.lang === "no" ? "nb-NO" : "en",
       { maximumFractionDigits: 1, minimumFractionDigits: 1 }).format(value) + "°";
+    const angles = data => [degrees(data.azimuth), degrees(data.upper_limb), degrees(data.terrain)];
+    const rows = [this.l.bearing, this.l.elevation, this.l.terrain];
     const live = day.date === today
-      ? `<dl>${row(this.l.bearing, degrees(azimuth))}${row(this.l.elevation, degrees(upper_limb))}${row(this.l.terrain, degrees(terrain))}</dl>` : "";
-    const legend = `<div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span><span><i class="tone-nautical"></i>${this.l.profile}</span>
-      <span>${this.l.sunPath} (${this.l.sunCenter})</span>
+      ? (other ? this.comparisonTable(rows.map((label, i) => [label, angles(this.data)[i], angles(other)[i]]))
+        : `<dl>${rows.map((label, i) => row(label, angles(this.data)[i])).join("")}</dl>`) : "";
+    const pairedPaths = other && (this.mode === "sun" || this.wantsMoonPath);
+    const overlay = other && !pairedPaths;
+    const legend = `<div class="legend"><span><i class="tone-direct"></i>${this.l.direct}</span>${overlay ? "" : `<span><i class="tone-nautical"></i>${this.l.profile}</span>`}
+      <span>${this.l.sunPath} (${this.l.sunCenter})${overlay ? ` · ${escape(this.primary.name)}` : ""}</span>
       ${this.wantsMoonPath ? `<span><i class="moon-path-key"></i>${this.l.moonPath}</span>` : ""}
       ${this.config.show_moon ? `<span class="moon-key"><i></i>${this.l.moon}</span>` : ""}
       ${twilight ? phaseOrder.slice(0, -1).reverse().map(phase =>
         `<span><i class="tone-${phase}"></i>${this.l[phase]}</span>`).join("") : ""}</div>`;
+    let plot = `<p class="statusbox" role="status">${this.l.loading}</p>`;
+    if (!waitingForMoon) {
+      const geometry = this.chartGeometry(other ? [this.data, other] : [this.data]);
+      plot = pairedPaths ? `<div class="horizon-pair">${[this.primary, this.secondary].map((profile, i) =>
+        `<section><h3 class="profile-heading">${escape(profile.name)}</h3>${this.chart(twilight, geometry, i)}</section>`).join("")}</div>`
+        : this.chart(twilight, geometry, 0, overlay);
+      plot += legend + (overlay ? this.profileLegend() : "");
+    }
     return `<header><h2>${this.title}</h2><span class="date">${this.formatDate(day.date)}</span></header>
+      ${this.profileControls()}
       <div class="controls"><div class="view-modes" role="group" aria-label="${this.l.viewMode}">
         ${Object.entries(horizonViews).map(([mode, label]) => toggler(mode, this.l[label], mode === this.mode)).join("")}</div>
         ${toggler("show-twilight", this.l.showTwilight, this.showTwilight)}</div>
       ${this.dateControls(this.selectedDate ?? today, ...this.dateBounds())}
-      ${waitingForMoon ? `<p class="statusbox" role="status">${this.l.loading}</p>` : this.chart(twilight) + legend}
+      ${plot}
       ${live}`;
   }
 }
@@ -682,12 +833,17 @@ class YearCard extends SolarCard {
   }
 
   async load() {
+    return this.loadProfiles("year", this.year ? { year: this.year } : {});
+  }
+
+  applyData(result) {
     const selected = this.data?.days[this.index]?.date;
     const followsToday = !selected || selected === this.today;
-    this.data = await request(this._hass, "year", this.year ? { year: this.year } : {});
+    super.applyData(result);
     this.year = this.data.year;
     this.today = this.data.today;
     this.index = Math.max(0, this.data.days.findIndex(day => day.date === (followsToday ? this.today : selected)));
+    this.similar = null;
     this.updateSimilarDay();
   }
 
@@ -720,7 +876,7 @@ class YearCard extends SolarCard {
     } else if (event.target.dataset.field === "day") {
       const selected = this.data.days.findIndex(day => day.date === event.target.value);
       if (selected !== -1) this.select(selected);
-    }
+    } else super.handleChange(event);
   }
 
   select(index) {
@@ -731,32 +887,40 @@ class YearCard extends SolarCard {
 
   async updateSimilarDay() {
     const day = this.data.days[this.index];
-    if (this.similar?.date === day.date && !this.similar.error) return;
-    const lookup = { date: day.date, dark: day.totals.direct === 0 };
-    this.similar = lookup;
-    try {
-      lookup.result = await request(this._hass, "similar_sun", { date: day.date });
-    } catch (error) {
-      lookup.error = true;
-    }
-    const output = this.shadowRoot.querySelector("[data-similar-result]");
-    if (lookup === this.similar && output) output.textContent = this.similarDayValue();
+    const key = `${day.date}:${this.primary.id}:${this.secondary?.id ?? ""}`;
+    if (this.similar?.key === key && !this.similar.lookups.some(lookup => lookup.error)) return;
+    const profiles = [[this.primary, day]];
+    if (this.comparison) profiles.push([this.secondary, this.comparison.days[this.index]]);
+    const batch = { key, lookups: profiles.map(([, value]) => ({ dark: value.totals.direct === 0 })) };
+    this.similar = batch;
+    await Promise.all(profiles.map(async ([profile], i) => {
+      const lookup = batch.lookups[i];
+      try {
+        lookup.result = await request(this._hass, "similar_sun", { date: day.date, profile_id: profile.id });
+      } catch (error) {
+        lookup.error = true;
+      }
+      const output = this.shadowRoot.querySelector(`[data-similar-result="${i}"]`);
+      if (batch === this.similar && output) output.textContent = this.similarDayValue(i);
+    }));
   }
 
-  similarDayValue() {
-    const { error, result, dark } = this.similar;
+  similarDayValue(index = 0) {
+    const { error, result, dark } = this.similar.lookups[index];
     if (error) return this.l.lookupFailed;
     if (result === undefined) return this.l.loading;
     if (!result) return dark ? this.l.noSunFound : this.l.noMatch;
-    return `${this.formatDate(result.date, true)} · ${this.formatDuration(result.duration)}`;
+    const label = this.comparison && dark ? `${this.l.nextSunDate} · ` : "";
+    return `${label}${this.formatDate(result.date, true)} · ${this.formatDuration(result.duration)}`;
   }
 
   chart() {
     const { days } = this.data;
+    const compared = this.comparison?.days;
     const left = 39, right = 606, top = 10, bottom = 404;
     const width = (right - left) / days.length;
-    const max = this.mode === "duration"
-      ? Math.max(86400, ...days.map(day => day.end - day.start)) : 86400;
+    const max = compared ? 14400 * Math.max(1, Math.ceil(Math.max(...days.concat(compared).map(day => day.totals.direct)) / 14400))
+      : this.mode === "duration" ? Math.max(86400, ...days.map(day => day.end - day.start)) : 86400;
     const y = seconds => bottom - seconds / max * (bottom - top);
     const paths = Object.fromEntries(legendOrder.map(key => [key, []]));
     const section = (index, begin, end, color) => {
@@ -765,7 +929,7 @@ class YearCard extends SolarCard {
       const y1 = f(y(begin)), y2 = f(y(end));
       paths[color].push(`M${x1},${y1}H${x2}V${y2}H${x1}Z`);
     };
-    days.forEach((day, index) => {
+    if (!compared) days.forEach((day, index) => {
       if (this.mode === "clock") {
         for (const [,, phase, direct, clockStart, clockEnd] of day.bands) {
           section(index, clockStart, clockEnd, tone(phase, direct));
@@ -781,7 +945,7 @@ class YearCard extends SolarCard {
       }
     });
     const grids = [];
-    for (let hour = 0; hour <= 24; hour += 4) {
+    for (let hour = 0; hour <= Math.floor(max / 3600); hour += 4) {
       const v = f(y(hour * 3600));
       grids.push(`<path class="grid" d="M${left},${v}H${right}"/><text class="axis" x="${left - 6}" y="${Number(v) + 4}" text-anchor="end">${String(hour).padStart(2, "0")}</text>`);
     }
@@ -802,9 +966,13 @@ class YearCard extends SolarCard {
       return `<path class="season-line ${kind}" d="M${mark},${top}V${bottom}"><title>${this.l[event.kind]} · ${this.formatDate(event.date)}</title></path>`;
     });
     const cursor = f(left + (this.index + .5) * width);
-    return `<svg class="year-plot" viewBox="0 0 620 ${bottom + 35}" aria-label="${this.l.graph}">
+    const directLine = (series, index) => `<path class="annual-line${index ? " secondary" : ""}" d="${series.map((day, i) =>
+      `${i ? "L" : "M"}${f(left + (i + .5) * width)},${f(y(day.totals.direct))}`).join("")}"/>`;
+    const series = compared ? [days, compared].map(directLine).join("")
+      : legendOrder.slice().reverse().map(key => `<path class="tone-${key}" d="${paths[key].join("")}"/>`).join("");
+    return `<svg class="year-plot" viewBox="0 0 620 ${bottom + 35}" aria-label="${compared ? `${this.l.graph} · ${this.l.direct}` : this.l.graph}">
       ${grids.join("")}
-      ${legendOrder.slice().reverse().map(key => `<path class="tone-${key}" d="${paths[key].join("")}"/>`).join("")}
+      ${series}
       ${seasons.join("")}
       <path class="cursor" d="M${cursor},${top}V${bottom}"/>
       ${months.join("")}
@@ -814,11 +982,14 @@ class YearCard extends SolarCard {
 
   renderData() {
     const { days, totals, next_seasons } = this.data;
+    const compared = this.comparison;
     const day = days[this.index];
     const [hour, minute] = this.evening.split(":").map(Number);
     const time = hour * 3600 + minute * 60;
-    const lastEvening = days.findLast(item => item.bands.some(
-      ([,,, direct, start, end]) => direct && start <= time && time < end));
+    const lastEvening = series => {
+      const match = series.findLast(item => item.bands.some(([,,, direct, start, end]) => direct && start <= time && time < end));
+      return match ? this.formatDate(match.date) : "—";
+    };
     const opened = this.shadowRoot.querySelector("details")?.open;
     const currentYear = Number(this.today.slice(0, 4));
     const yearOptions = [currentYear - 1, currentYear, currentYear + 1]
@@ -826,30 +997,37 @@ class YearCard extends SolarCard {
     const locale = this.lang === "no" ? "nb-NO" : "en-GB";
     const numbers = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
     const hours = seconds => `${numbers.format(seconds / 3600)} ${this.l.hour}`;
-    const shadeShare = totals.daylight > 0 ? new Intl.NumberFormat(locale, {
+    const percent = new Intl.NumberFormat(locale, {
       style: "percent", maximumFractionDigits: 1,
-    }).format(totals.terrain_shade / totals.daylight) : "";
-    const shade = hours(totals.terrain_shade) + (shadeShare ? ` · ${shadeShare}` : "");
+    });
+    const shade = data => hours(data.terrain_shade) + (data.daylight > 0 ? ` · ${percent.format(data.terrain_shade / data.daylight)}` : "");
+    const annualRows = [
+      [this.l.annualSun, data => hours(data.direct)],
+      [this.l.annualDaylight, data => hours(data.daylight)],
+      [this.l.terrain_shade, shade],
+    ];
+    const annual = compared ? this.comparisonTable(annualRows.map(([label, value]) => [label, value(totals), value(compared.totals)]), this.l.yearTotals)
+      : `<dl>${annualRows.map(([label, value]) => row(label, value(totals))).join("")}</dl>`;
+    const match = compared ? this.comparisonTable([[this.l.similarSun, ...[0, 1].map(i =>
+      `<span data-similar-result="${i}" aria-live="polite">${this.similarDayValue(i)}</span>`) ]])
+      : `<dl><div class="row"><dt>${this.similar.lookups[0].dark ? this.l.nextSunDate : this.l.similarSun}</dt>
+        <dd data-similar-result="0" aria-live="polite">${this.similarDayValue()}</dd></div></dl>`;
     return `<header><h2>${this.title}</h2></header>
+      ${this.profileControls()}
       <div class="controls">
-        ${toggler("clock", this.l.clock, this.mode === "clock")}
-        ${toggler("duration", this.l.duration, this.mode === "duration")}
+        ${compared ? `<strong>${this.l.dailySun}</strong>` : toggler("clock", this.l.clock, this.mode === "clock") + toggler("duration", this.l.duration, this.mode === "duration")}
         <span class="spacer"></span><label>${this.l.year} <select data-field="year">${yearOptions}</select></label>
       </div>
       ${this.dateControls(day.date, days[0].date, days.at(-1).date, currentYear === this.year)}
       ${this.chart()}
-      ${this.legend()}
-      <dl><div class="row"><dt>${this.similar.dark ? this.l.nextSunDate : this.l.similarSun}</dt>
-        <dd data-similar-result aria-live="polite">${this.similarDayValue()}</dd></div></dl>
+      ${compared ? this.profileLegend() : ""}${this.legend(Boolean(compared))}
+      ${match}
       <section class="year-section">
         <h3>${this.l.yearTotals} ${this.year}</h3>
-        <dl>${row(this.l.annualSun, hours(totals.direct))}
-          ${row(this.l.annualDaylight, hours(totals.daylight))}
-          ${row(this.l.terrain_shade, shade)}
-        </dl>
+        ${annual}
       </section>
       <section class="year-section">
-        <h3>${this.l.seasons}</h3>
+        <h3>${this.l.seasons}${compared ? ` · ${escape(this.primary.name)}` : ""}</h3>
         <dl>${next_seasons.map(event => {
           const countdown = event.days === 0 ? this.l.today : `${event.days} ${event.days === 1 ? this.l.daySingle : this.l.dayPlural}`;
           return row(this.l[event.kind], `${this.formatDate(event.date, true)} · ${countdown}`);
@@ -857,8 +1035,8 @@ class YearCard extends SolarCard {
       </section>
       <details ${opened ? "open" : ""}><summary>${this.l.eveningSun}</summary>
         <dl>${row(this.l.evening, `<input type="time" data-field="evening" aria-label="${this.l.evening}" value="${this.evening}">`)}
-          ${row(this.l.lastEvening, lastEvening ? this.formatDate(lastEvening.date) : "—")}
-        </dl>
+          ${compared ? "" : row(this.l.lastEvening, lastEvening(days))}</dl>
+        ${compared ? this.comparisonTable([[this.l.lastEvening, lastEvening(days), lastEvening(compared.days)]], this.l.eveningSun) : ""}
       </details>`;
   }
 }

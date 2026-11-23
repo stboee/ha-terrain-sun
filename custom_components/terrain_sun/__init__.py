@@ -17,29 +17,40 @@ from homeassistant.components.lovelace.resources import ResourceStorageCollectio
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
 from .engine import PHASE_LIMITS, Horizon, SolarModel, next_boundary, next_matching_day
 
 DOMAIN = "terrain_sun"
-PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR)
+PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SELECT)
 RESOURCE = "/terrain_sun/terrain-sun.js"
+DEFAULT_PROFILE = "default_profile"
 _LOGGER = logging.getLogger(__name__)
 
 
 class TerrainRuntime(DataUpdateCoordinator[dict]):
     """Cache chart data and update the current conditions on the server."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, model: SolarModel):
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, profile_id: str, profile: dict):
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=f"{DOMAIN}_{profile_id}",
             config_entry=entry,
             update_interval=timedelta(minutes=1),
         )
-        self.model = model
+        self.profile_id = profile_id
+        self.profile_name = profile["name"]
+        self.device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_{profile_id}")},
+            name=f"Terrain Sun – {self.profile_name}",
+        )
+        horizon = Horizon(tuple(profile["bearings"]), tuple(profile["elevations"]))
+        lat, lon = profile["coordinates"] or (hass.config.latitude, hass.config.longitude)
+        self.model = SolarModel(lat, lon, horizon, ZoneInfo(hass.config.time_zone))
         self._days: OrderedDict[date, dict] = OrderedDict()
         self._moon_paths: OrderedDict[int, list[list]] = OrderedDict()
         self._years: OrderedDict[int, dict] = OrderedDict()
@@ -169,13 +180,20 @@ class TerrainRuntime(DataUpdateCoordinator[dict]):
         }
 
 
-type TerrainConfigEntry = ConfigEntry[TerrainRuntime]
+type TerrainConfigEntry = ConfigEntry[dict[str, TerrainRuntime]]
+
+
+def default_profile_id(entry: TerrainConfigEntry) -> str:
+    profiles = entry.data["profiles"]
+    selected = entry.options.get(DEFAULT_PROFILE)
+    return selected if selected in profiles else next(iter(profiles))
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "terrain_sun/data",
-        vol.Required("view"): vol.In(("now", "horizon", "day", "year", "similar_sun")),
+        vol.Required("view"): vol.In(("profiles", "now", "horizon", "day", "year", "similar_sun")),
+        vol.Optional("profile_id"): str,
         vol.Optional("date"): str,
         vol.Optional("year"): int,
         vol.Optional("moon"): bool,
@@ -190,10 +208,29 @@ async def _async_get_data(hass, connection, message):
             message["id"], "not_configured", "Set up Terrain Sun first"
         )
         return
-    runtime = next(iter(entries.values()))
+    entry = next(iter(entries.values()))
+    default_id = default_profile_id(entry)
+    view = message["view"]
+    if view == "profiles":
+        selector = er.async_get(hass).async_get_entity_id(
+            Platform.SELECT, DOMAIN, f"{entry.entry_id}_{DEFAULT_PROFILE}"
+        )
+        connection.send_result(message["id"], {
+            "default_profile": default_id,
+            "selector": selector,
+            "today": datetime.now(UTC).astimezone(ZoneInfo(hass.config.time_zone)).date().isoformat(),
+            "profiles": [
+                {"id": runtime.profile_id, "name": runtime.profile_name}
+                for runtime in entry.runtime_data.values()
+            ],
+        })
+        return
+    runtime = entry.runtime_data.get(message.get("profile_id", default_id))
+    if runtime is None:
+        connection.send_error(message["id"], "profile_not_found", "Terrain Sun profile is unavailable")
+        return
     now = datetime.now(UTC)
     today = now.astimezone(runtime.model.zone).date()
-    view = message["view"]
     try:
         if view == "year":
             year = message.get("year", today.year)
@@ -290,20 +327,16 @@ def _is_card_resource(item: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> bool:
     """Set up entities and the shared calculation service."""
-    profile = Horizon(tuple(entry.data["bearings"]), tuple(entry.data["elevations"]))
-    lat, lon = entry.data["coordinates"] or (
-        hass.config.latitude,
-        hass.config.longitude,
-    )
-    runtime = TerrainRuntime(
-        hass, entry, SolarModel(lat, lon, profile, ZoneInfo(hass.config.time_zone))
-    )
-    await runtime.async_config_entry_first_refresh()
+    runtimes = {
+        profile_id: TerrainRuntime(hass, entry, profile_id, profile)
+        for profile_id, profile in entry.data["profiles"].items()
+    }
+    await asyncio.gather(*(runtime.async_config_entry_first_refresh() for runtime in runtimes.values()))
     integration = await async_get_integration(hass, DOMAIN)
     await _async_register_resource(hass, str(integration.version))
-    entry.runtime_data = runtime
+    entry.runtime_data = runtimes
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    hass.data[DOMAIN]["entries"][entry.entry_id] = runtime
+    hass.data[DOMAIN]["entries"][entry.entry_id] = entry
     return True
 
 
@@ -312,6 +345,32 @@ async def async_unload_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> 
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
     hass.data[DOMAIN]["entries"].pop(entry.entry_id, None)
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: TerrainConfigEntry) -> bool:
+    """Keep the imported horizon and give its entities profile-specific IDs."""
+    if entry.version != 1:
+        return entry.version == 2
+    norwegian = hass.config.language.split("-")[0] in ("nb", "nn", "no")
+    profile_id, name = ("hjemme", "Hjemme") if norwegian else ("home", "Home")
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if not entity.unique_id.startswith(prefix):
+            continue
+        key = entity.unique_id.removeprefix(prefix)
+        if key.startswith(f"{profile_id}_") or entity.domain not in (Platform.SENSOR, Platform.BINARY_SENSOR):
+            continue
+        new_id = registry.async_get_available_entity_id(
+            entity.domain, f"{DOMAIN}_{profile_id}_{key}", current_entity_id=entity.entity_id
+        )
+        registry.async_update_entity(
+            entity.entity_id, new_entity_id=new_id, new_unique_id=f"{prefix}{profile_id}_{key}"
+        )
+    hass.config_entries.async_update_entry(
+        entry, data={"profiles": {profile_id: {**entry.data, "name": name}}}, version=2
+    )
     return True
 
 

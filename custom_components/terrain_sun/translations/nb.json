@@ -4,27 +4,91 @@
       "user": {
         "title": "Importer horisonten",
         "description": "Velg en Stellarium-eksport fra PeakFinder (horizon.txt). Koordinatene i filen angir utsiktspunktet. Hvis filen mangler koordinater, brukes plasseringen fra Home Assistant.",
-        "data": { "profile": "Horisontfil" }
+        "data": {
+          "name": "Profilnavn",
+          "profile": "Horisontfil"
+        }
       },
       "reconfigure": {
-        "title": "Bytt horisontprofil",
-        "description": "Velg en ny horizon.txt. De samme entitetene og kortene tar i bruk den nye profilen.",
-        "data": { "profile": "Horisontfil" }
+        "title": "Administrer terrengprofiler",
+        "menu_options": {
+          "add_profile": "Legg til profil",
+          "choose_profile": "Rediger profil",
+          "remove_profile": "Fjern profil"
+        }
+      },
+      "add_profile": {
+        "title": "Legg til profil",
+        "description": "Velg en Stellarium-eksport fra PeakFinder (horizon.txt). Koordinatene i filen angir utsiktspunktet. Hvis filen mangler koordinater, brukes plasseringen fra Home Assistant.",
+        "data": {
+          "name": "Profilnavn",
+          "profile": "Horisontfil"
+        }
+      },
+      "choose_profile": {
+        "title": "Rediger profil",
+        "data": {
+          "profile_id": "Terrengprofil"
+        }
+      },
+      "edit_profile": {
+        "title": "Rediger profil",
+        "description": "Endre navnet eller velg en ny horizon.txt for denne profilen. Tomt filfelt beholder terrengdataene.",
+        "data": {
+          "name": "Profilnavn",
+          "profile": "Horisontfil"
+        }
+      },
+      "remove_profile": {
+        "title": "Fjern profil",
+        "description": "Dette fjerner profilen og dens entiteter. Kort som fulgte profilen går tilbake til standardprofilen.",
+        "data": {
+          "profile_id": "Terrengprofil",
+          "confirm": "Jeg vil fjerne profilen og entitetene"
+        }
       }
     },
     "error": {
-      "invalid_profile": "Kunne ikke lese horisonten. Bruk en UTF-8-tekstfil med par av azimut og høydevinkel som dekker hele kompasset."
+      "invalid_profile": "Kunne ikke lese horisonten. Bruk en UTF-8-tekstfil med par av azimut og høydevinkel som dekker hele kompasset.",
+      "empty_name": "Skriv et profilnavn.",
+      "name_in_use": "En annen profil bruker dette navnet.",
+      "confirm_removal": "Bekreft at du vil fjerne profilen."
+    },
+    "abort": {
+      "last_profile": "Terrain Sun må ha minst én terrengprofil.",
+      "unknown_profile": "Denne terrengprofilen finnes ikke lenger."
     }
   },
   "entity": {
-    "binary_sensor": { "direct_sun": { "name": "Direkte sol" } },
+    "binary_sensor": {
+      "direct_sun": {
+        "name": "Direkte sol"
+      }
+    },
     "sensor": {
-      "next_transition": { "name": "Neste overgang for direkte sol" },
-      "direct_duration": { "name": "Direkte soltid i dag" },
-      "daylight_duration": { "name": "Dagslengde i dag" },
-      "solar_elevation": { "name": "Solhøyde" },
-      "solar_azimuth": { "name": "Solazimut" },
-      "terrain_elevation": { "name": "Terrenghøyde i solretningen" }
+      "next_transition": {
+        "name": "Neste overgang for direkte sol"
+      },
+      "direct_duration": {
+        "name": "Direkte soltid i dag"
+      },
+      "daylight_duration": {
+        "name": "Dagslengde i dag"
+      },
+      "solar_elevation": {
+        "name": "Solhøyde"
+      },
+      "solar_azimuth": {
+        "name": "Solazimut"
+      },
+      "terrain_elevation": {
+        "name": "Terrenghøyde i solretningen"
+      }
+    },
+    "select": {
+      "default_profile": {
+        "name": "Standardprofil for kortene"
+      }
     }
   }
 }

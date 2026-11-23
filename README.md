@@ -11,9 +11,19 @@ Krever Home Assistant **2026.11.2** eller nyere.
 3. Legg til **Terrain Sun** under **Innstillinger → Enheter og tjenester**. Velg `horizon.txt` fra PeakFinder (**Export → Horizon for Stellarium**).
 4. Last inn Home Assistant-fanen på nytt etter oppsettet. Rediger dashboardet, åpne **Legg til kort → Etter kort** og søk etter **Terrain Sun**.
 
-For en første gjennomgang kan du bruke [eksempelprofilen fra Øyer](examples/horizon.txt), basert på vinkelverdier fra PeakFinder. Eksempelfilen bruker Home Assistant sin plassering. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Begge bruker tidssonen fra Home Assistant. For å bytte profil velger du **Konfigurer på nytt** på integrasjonen og laster opp en ny fil.
+For en første gjennomgang kan du bruke [eksempelprofilen fra Øyer](examples/horizon.txt), basert på vinkelverdier fra PeakFinder. Eksempelfilen bruker plasseringen i Home Assistant. En PeakFinder-eksport med koordinater bruker utsiktspunktet i eksporten. Alle profiler bruker tidssonen fra Home Assistant.
 
 Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på nytt når Marketplace ber om det. Terrengprofilen ligger i integrasjonens konfigurasjon og følger med ved oppdatering.
+
+## Terrengprofiler
+
+Åpne **Innstillinger → Enheter og tjenester → Terrain Sun → Konfigurer på nytt**. Der kan du legge til en navngitt profil, gi en profil nytt navn, oppdatere horisontfilen eller fjerne en profil.
+
+- **Standardprofil for kortene** (`select.terrain_sun_default_profile`) kan styres på entitetssiden og legges på et dashboard. Den brukes av alle kort som står på **Følg standardprofil**.
+- **Profil** og **Sammenlign med** i kortet gjelder den visningen. Velg eventuelt startverdier i kortredigeringen, eller angi profil-ID-er i YAML med `profile` og `compare_profile`. Valg gjort i selve visningen gjelder mens kortet er åpent.
+- Hver profil får en egen enhet med en fast entitet for direkte sol og seks sensorer. Eksempel for Hjemme er `binary_sensor.terrain_sun_hjemme_direct_sun` og `sensor.terrain_sun_hjemme_direct_duration`. Et nytt visningsnavn beholder de samme ID-ene.
+
+Ved oppdatering fra versjoner med én profil blir terrengdataene lagt i **Hjemme** (eller **Home** ved andre språk). Terrengsensorene får profilspesifikke entitets-ID-er. Oppdater eventuelle manuelle referanser til gamle ID-er i automasjoner og dashboard.
 
 ## Kort
 
@@ -22,6 +32,8 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 | **Sol i dag** | Døgnstripe, solperioder, dagslengde, terrengskygge og lysfaser for valgt dato. Starter på dagens dato, som også viser status og neste overgang. | `custom:terrain-sun-today` |
 | **Lokal horisont** | Terrengprofil, sol- og månebaner og vinkelverdier. Velg mellom **Utsnitt**, **360°**, **Solbane** og **Månebane**. | `custom:terrain-sun-horizon` |
 | **Solåret** | Årsgraf i klokkeslett- og varighetsvisning, årssummer, neste solverv og jevndøgn, neste dato med tilsvarende soltid og kveldssol ved valgt klokkeslett. | `custom:terrain-sun-year` |
+
+Med **Sammenlign med** bruker begge profiler samme dato eller år. **Sol i dag** viser to døgnstriper på samme klokkeakse, tidspunkter og en forskjell i direkte soltid. **Lokal horisont** legger de to terrenglinjene oppå hverandre i **Utsnitt** og **360°**, med solbanen fra hovedprofilen. **Solbane** og **Månebane** viser to paneler med identiske akser. **Solåret** viser to kurver for daglig direkte soltid og sammenligner årssummene. På smale kort vises profilverdiene under hverandre innen hver rad.
 
 I **Sol i dag** sammenlignes direkte soltid med dagen før, dagen etter og datoene nøyaktig sju dager før og etter valgt dato.
 
@@ -56,19 +68,19 @@ Velg innstillingene i den visuelle kortredigeringen, eller bruk de tilsvarende Y
 
 ### Skjermbilder
 
-Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horizon.txt).
+Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horizon.txt) og en flat profil på 0° ved samme utsiktspunkt.
 
 #### Sol i dag
 
-<img src="docs/images/sol-i-dag.webp" width="600" alt="Sol i dag med datovelger, døgnstripe, endringer i direkte soltid og utvidede lysfaser">
+<img src="docs/images/sol-i-dag.webp" width="600" alt="To døgnstriper med felles klokkeakse og sammenlignede solperioder">
 
 #### Lokal horisont
 
-<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont fra Øyer i visningen Månebane, med begge banene og skumringsbåndene">
+<img src="docs/images/lokal-horisont.webp" width="600" alt="Lokal horisont med to terrengprofiler på samme akse">
 
 #### Solåret
 
-<img src="docs/images/solaret.webp" width="600" alt="Solåret med årsgraf, årssummer og nedtelling til solverv og jevndøgn">
+<img src="docs/images/solaret.webp" width="600" alt="Solåret med to kurver for daglig direkte sol og årssummer per profil">
 
 ## Entiteter og beregninger
 

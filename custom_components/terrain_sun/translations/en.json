@@ -4,27 +4,91 @@
       "user": {
         "title": "Import your horizon",
         "description": "Choose a PeakFinder Stellarium horizon export (horizon.txt). The coordinates in the file determine the viewpoint. If the file has no coordinates, Terrain Sun uses the Home Assistant location.",
-        "data": { "profile": "Horizon file" }
+        "data": {
+          "name": "Profile name",
+          "profile": "Horizon file"
+        }
       },
       "reconfigure": {
-        "title": "Replace the horizon profile",
-        "description": "Choose a new horizon.txt file. The existing entities and cards will use the new profile.",
-        "data": { "profile": "Horizon file" }
+        "title": "Manage terrain profiles",
+        "menu_options": {
+          "add_profile": "Add a profile",
+          "choose_profile": "Edit a profile",
+          "remove_profile": "Remove a profile"
+        }
+      },
+      "add_profile": {
+        "title": "Add a profile",
+        "description": "Choose a PeakFinder Stellarium horizon export (horizon.txt). The coordinates in the file determine the viewpoint. If the file has no coordinates, Terrain Sun uses the Home Assistant location.",
+        "data": {
+          "name": "Profile name",
+          "profile": "Horizon file"
+        }
+      },
+      "choose_profile": {
+        "title": "Edit a profile",
+        "data": {
+          "profile_id": "Terrain profile"
+        }
+      },
+      "edit_profile": {
+        "title": "Edit a profile",
+        "description": "Change the name or select a new horizon.txt for this profile. Leaving the file field empty keeps the terrain data.",
+        "data": {
+          "name": "Profile name",
+          "profile": "Horizon file"
+        }
+      },
+      "remove_profile": {
+        "title": "Remove a profile",
+        "description": "This removes the profile and its entities. Cards using the profile will go back to the default.",
+        "data": {
+          "profile_id": "Terrain profile",
+          "confirm": "I want to remove the profile and its entities"
+        }
       }
     },
     "error": {
-      "invalid_profile": "Could not read the horizon. Use a UTF-8 text file with azimuth and elevation pairs covering the full compass."
+      "invalid_profile": "Could not read the horizon. Use a UTF-8 text file with azimuth and elevation pairs covering the full compass.",
+      "empty_name": "Enter a profile name.",
+      "name_in_use": "Another profile uses this name.",
+      "confirm_removal": "Confirm that you want to remove the profile."
+    },
+    "abort": {
+      "last_profile": "Terrain Sun needs at least one terrain profile.",
+      "unknown_profile": "This terrain profile no longer exists."
     }
   },
   "entity": {
-    "binary_sensor": { "direct_sun": { "name": "Direct sun" } },
+    "binary_sensor": {
+      "direct_sun": {
+        "name": "Direct sun"
+      }
+    },
     "sensor": {
-      "next_transition": { "name": "Next direct sun transition" },
-      "direct_duration": { "name": "Direct sun duration today" },
-      "daylight_duration": { "name": "Daylight duration today" },
-      "solar_elevation": { "name": "Solar elevation" },
-      "solar_azimuth": { "name": "Solar azimuth" },
-      "terrain_elevation": { "name": "Terrain elevation at the Sun" }
+      "next_transition": {
+        "name": "Next direct sun transition"
+      },
+      "direct_duration": {
+        "name": "Direct sun duration today"
+      },
+      "daylight_duration": {
+        "name": "Daylight duration today"
+      },
+      "solar_elevation": {
+        "name": "Solar elevation"
+      },
+      "solar_azimuth": {
+        "name": "Solar azimuth"
+      },
+      "terrain_elevation": {
+        "name": "Terrain elevation at the Sun"
+      }
+    },
+    "select": {
+      "default_profile": {
+        "name": "Default profile for cards"
+      }
     }
   }
 }

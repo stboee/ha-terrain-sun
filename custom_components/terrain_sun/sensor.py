@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfTime
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import TerrainConfigEntry
+from . import DOMAIN, TerrainConfigEntry, TerrainRuntime
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -69,7 +69,11 @@ SENSORS = (
 async def async_setup_entry(
     hass, entry: TerrainConfigEntry, async_add_entities
 ) -> None:
-    async_add_entities(TerrainSensor(entry, description) for description in SENSORS)
+    async_add_entities(
+        TerrainSensor(entry, runtime, description)
+        for runtime in entry.runtime_data.values()
+        for description in SENSORS
+    )
 
 
 class TerrainSensor(CoordinatorEntity, SensorEntity):
@@ -77,10 +81,12 @@ class TerrainSensor(CoordinatorEntity, SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, entry: TerrainConfigEntry, description: TerrainDescription):
-        super().__init__(entry.runtime_data)
+    def __init__(self, entry: TerrainConfigEntry, runtime: TerrainRuntime, description: TerrainDescription):
+        super().__init__(runtime)
         self.entity_description = description
-        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_unique_id = f"{entry.entry_id}_{runtime.profile_id}_{description.key}"
+        self._attr_device_info = runtime.device_info
+        self.entity_id = f"sensor.{DOMAIN}_{runtime.profile_id}_{description.key}"
 
     @property
     def native_value(self):
