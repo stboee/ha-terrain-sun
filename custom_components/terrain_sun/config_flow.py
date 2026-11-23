@@ -19,7 +19,13 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.util import slugify
 
-from . import DEFAULT_PROFILE, DOMAIN
+from . import (
+    DEFAULT_PROFILE,
+    DOMAIN,
+    async_set_default_profile,
+    default_profile_id,
+    sorted_profiles,
+)
 from .engine import parse_horizon
 from .sensor import SENSORS
 
@@ -52,10 +58,30 @@ class TerrainSunConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reconfigure(self, user_input=None):
         profiles = self._get_reconfigure_entry().data["profiles"]
-        actions = ["add_profile", "choose_profile"]
+        actions = ["set_default_profile", "add_profile", "choose_profile"]
         if len(profiles) > 1:
             actions.append("remove_profile")
         return self.async_show_menu(step_id="reconfigure", menu_options=actions)
+
+    async def async_step_set_default_profile(self, user_input=None):
+        entry = self._get_reconfigure_entry()
+        profiles = entry.data["profiles"]
+        if user_input is not None:
+            profile_id = user_input["profile_id"]
+            if profile_id not in profiles:
+                return self.async_abort(reason="unknown_profile")
+            async_set_default_profile(self.hass, entry, profile_id)
+            return self.async_abort(reason="default_profile_saved")
+        return self.async_show_form(
+            step_id="set_default_profile",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "profile_id", default=default_profile_id(entry)
+                    ): self._profile_selector(profiles),
+                }
+            ),
+        )
 
     async def async_step_add_profile(self, user_input=None):
         return await self._async_profile_form("add_profile", user_input)
@@ -65,7 +91,9 @@ class TerrainSunConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 "options": [
                     {"value": key, "label": profile["name"]}
-                    for key, profile in profiles.items()
+                    for key, profile in sorted_profiles(
+                        profiles, self.hass.config.language
+                    )
                 ],
                 "mode": "dropdown",
             }

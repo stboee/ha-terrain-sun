@@ -12,9 +12,17 @@
       "reconfigure": {
         "title": "Administrer terrengprofiler",
         "menu_options": {
+          "set_default_profile": "Velg standardprofil",
           "add_profile": "Legg til profil",
           "choose_profile": "Rediger profil",
           "remove_profile": "Fjern profil"
+        }
+      },
+      "set_default_profile": {
+        "title": "Velg standardprofil",
+        "description": "Velg hvilken profil kort med Følg standardprofil skal vise.",
+        "data": {
+          "profile_id": "Standardprofil"
         }
       },
       "add_profile": {
@@ -55,6 +63,7 @@
       "confirm_removal": "Bekreft at du vil fjerne profilen."
     },
     "abort": {
+      "default_profile_saved": "Standardprofilen er lagret.",
       "last_profile": "Terrain Sun må ha minst én terrengprofil.",
       "unknown_profile": "Denne terrengprofilen finnes ikke lenger."
     }

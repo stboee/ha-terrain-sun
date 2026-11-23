@@ -19,7 +19,7 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 
 Åpne **Innstillinger → Enheter og tjenester → Terrain Sun → Konfigurer på nytt**. Der kan du legge til en navngitt profil, gi en profil nytt navn, oppdatere horisontfilen eller fjerne en profil.
 
-- **Standardprofil for kortene** (`select.terrain_sun_default_profile`) kan styres på entitetssiden og legges på et dashboard. Den brukes av alle kort som står på **Følg standardprofil**.
+- Menyvalget **Velg standardprofil** styrer kort som står på **Følg standardprofil**. Du kan også bruke entiteten **Standardprofil for kortene** (`select.terrain_sun_default_profile`). Finn den under **Innstillinger → Enheter og tjenester → Entiteter**, eller legg den på dashboardet i et **Entiteter**-kort.
 - **Profil** og **Sammenlign med** i kortet gjelder den visningen. Velg eventuelt startverdier i kortredigeringen, eller angi profil-ID-er i YAML med `profile` og `compare_profile`. Valg gjort i selve visningen gjelder mens kortet er åpent.
 - Hver profil får en egen enhet med en fast entitet for direkte sol og seks sensorer. Eksempel for Hjemme er `binary_sensor.terrain_sun_hjemme_direct_sun` og `sensor.terrain_sun_hjemme_direct_duration`. Et nytt visningsnavn beholder de samme ID-ene.
 

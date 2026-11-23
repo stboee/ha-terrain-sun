@@ -12,9 +12,17 @@
       "reconfigure": {
         "title": "Manage terrain profiles",
         "menu_options": {
+          "set_default_profile": "Choose default profile",
           "add_profile": "Add a profile",
           "choose_profile": "Edit a profile",
           "remove_profile": "Remove a profile"
+        }
+      },
+      "set_default_profile": {
+        "title": "Choose default profile",
+        "description": "Choose the profile for cards set to Follow default profile.",
+        "data": {
+          "profile_id": "Default profile"
         }
       },
       "add_profile": {
@@ -55,6 +63,7 @@
       "confirm_removal": "Confirm that you want to remove the profile."
     },
     "abort": {
+      "default_profile_saved": "The default profile has been saved.",
       "last_profile": "Terrain Sun needs at least one terrain profile.",
       "unknown_profile": "This terrain profile no longer exists."
     }

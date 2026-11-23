@@ -7,6 +7,7 @@ import logging
 from collections import OrderedDict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from unicodedata import combining, normalize
 from zoneinfo import ZoneInfo
 
 import probatio as vol
@@ -16,9 +17,10 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_integration
 
@@ -187,6 +189,33 @@ def default_profile_id(entry: TerrainConfigEntry) -> str:
     profiles = entry.data["profiles"]
     selected = entry.options.get(DEFAULT_PROFILE)
     return selected if selected in profiles else next(iter(profiles))
+
+
+def sorted_profiles(profiles: dict, language: str) -> list[tuple[str, dict]]:
+    """Sort displayed names without changing the stored order or profile IDs."""
+    norwegian = language.lower().split("-")[0] in ("nb", "nn", "no")
+    # Keep Æ, Ø and Å after Z before stripping combining marks from other letters.
+    alphabet = str.maketrans(
+        {"æ": "\ufff0", "ø": "\ufff1", "å": "\ufff2"} if norwegian else {"æ": "ae", "ø": "o"}
+    )
+
+    def sort_key(item):
+        name = normalize("NFC", item[1]["name"].casefold())
+        base = normalize("NFD", name.translate(alphabet))
+        return "".join(letter for letter in base if not combining(letter)), name
+
+    return sorted(profiles.items(), key=sort_key)
+
+
+@callback
+def async_set_default_profile(
+    hass: HomeAssistant, entry: TerrainConfigEntry, profile_id: str
+) -> None:
+    """Save the dashboard default and notify its select entity."""
+    if hass.config_entries.async_update_entry(
+        entry, options={**entry.options, DEFAULT_PROFILE: profile_id}
+    ):
+        async_dispatcher_send(hass, f"{DOMAIN}_{entry.entry_id}_{DEFAULT_PROFILE}")
 
 
 @websocket_api.websocket_command(

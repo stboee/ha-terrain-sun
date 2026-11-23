@@ -183,6 +183,7 @@ const isNorwegian = language => /^(nb|nn|no)(-|$)/i.test(language);
 const pickerLanguage = () =>
   document.querySelector("home-assistant")?.hass?.locale?.language ?? navigator.language;
 const pickerWords = () => WORDS[isNorwegian(pickerLanguage()) ? "no" : "en"];
+const nameOrder = language => new Intl.Collator(language, { sensitivity: "base" }).compare;
 const escape = value => String(value).replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -205,7 +206,9 @@ class SolarCard extends HTMLElement {
     const words = pickerWords();
     const states = document.querySelector("home-assistant")?.hass?.states ?? {};
     const profiles = Object.values(states).find(state => state.attributes.terrain_sun_profiles)?.attributes.terrain_sun_profiles;
-    const options = Object.entries(profiles ?? {}).map(([label, value]) => ({ label, value }));
+    const compareNames = nameOrder(pickerLanguage());
+    const options = Object.entries(profiles ?? {})
+      .sort(([a], [b]) => compareNames(a, b)).map(([label, value]) => ({ label, value }));
     const schema = [{ name: "title", selector: { text: {} } }];
     if (options.length > 1) {
       schema.push(...[["profile", words.followDefault], ["compare_profile", words.noComparison]].map(([name, label]) => ({
@@ -320,11 +323,13 @@ class SolarCard extends HTMLElement {
     if (this.catalogue.profiles.length === 1) return `<p class="profile-label">${escape(this.primary.name)}</p>`;
     const options = (current, profiles) => profiles.map(profile =>
       `<option value="${escape(profile.id)}" ${profile.id === current ? "selected" : ""}>${escape(profile.name)}</option>`).join("");
-    const available = this.catalogue.profiles.filter(profile => profile.id !== this.primary.id);
+    const compareNames = nameOrder(this._hass.locale?.language ?? this._hass.language);
+    const profiles = this.catalogue.profiles.toSorted((a, b) => compareNames(a.name, b.name));
+    const available = profiles.filter(profile => profile.id !== this.primary.id);
     const defaultName = this.catalogue.profiles.find(profile => profile.id === this.catalogue.default_profile).name;
     return `<div class="controls profile-controls">
       <label>${this.l.profileChoice} <select data-field="profile"><option value="" ${this.followsDefault ? "selected" : ""}>${this.l.followDefault} (${escape(defaultName)})</option>
-        ${options(this.followsDefault ? "" : this.primary.id, this.catalogue.profiles)}</select></label>
+        ${options(this.followsDefault ? "" : this.primary.id, profiles)}</select></label>
       <label>${this.l.compareProfile} <select data-field="compare"><option value="">${this.l.noComparison}</option>
         ${options(this.secondary?.id, available)}</select></label>
     </div>`;
