@@ -17,6 +17,35 @@ FLAT = Horizon((0, 90, 180, 270), (0, 0, 0, 0))
 
 
 class SolarTest(unittest.TestCase):
+    def test_season_events_use_local_dates_and_hemisphere(self):
+        north = SolarModel(61.115, 10.466, FLAT, OSLO)
+        self.assertEqual(
+            [(event["kind"], event["date"]) for event in north.season_events(2026)],
+            [
+                ("spring_equinox", "2026-03-20"),
+                ("summer_solstice", "2026-06-21"),
+                ("autumn_equinox", "2026-09-23"),
+                ("winter_solstice", "2026-12-21"),
+            ],
+        )
+        west = SolarModel(39.7, -105, FLAT, ZoneInfo("America/Denver"))
+        self.assertEqual(west.season_events(2026)[2]["date"], "2026-09-22")
+        south = SolarModel(-33.4, -70.7, FLAT, ZoneInfo("America/Santiago"))
+        self.assertEqual(south.season_events(2026)[0]["kind"], "autumn_equinox")
+        self.assertEqual(south.season_events(2026)[1]["kind"], "winter_solstice")
+
+    def test_season_countdown_includes_today_and_rolls_into_next_year(self):
+        model = SolarModel(61.115, 10.466, FLAT, OSLO)
+        today = date(2026, 12, 21)
+        upcoming = model.next_season_events(today)
+        self.assertEqual(len(upcoming), 4)
+        self.assertEqual(upcoming[0], {"kind": "winter_solstice", "date": today.isoformat(), "days": 0})
+        self.assertTrue(all(event["date"].startswith("2027-") for event in upcoming[1:]))
+        self.assertEqual(
+            [event["days"] for event in upcoming],
+            [(date.fromisoformat(event["date"]) - today).days for event in upcoming],
+        )
+
     def test_matching_day_uses_first_crossing_after_solstice(self):
         reference = {"date": "2026-11-19", "totals": {"direct": 500}}
         days = [

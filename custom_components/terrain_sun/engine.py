@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from itertools import pairwise
 from zoneinfo import ZoneInfo
 
-from astronomy import Body, Equator, Observer, Refraction, Time
+from astronomy import Body, Equator, Observer, Refraction, Seasons, Time
 from astronomy import Horizon as equatorial_to_horizontal
 
 SUN_RADIUS = 0.26667
@@ -116,7 +116,7 @@ def _refraction(elevation: float) -> float:
 
 
 def _solar_elements(timestamp: float) -> tuple[float, float, float, float, float]:
-    """Return the orbital elements used for solar position and solstices."""
+    """Return the orbital elements used for solar position."""
     t = (timestamp / 86400 + 2440587.5 - 2451545.0) / 36525
     mean_longitude = math.radians((280.46646 + t * (36000.76983 + t * 0.0003032)) % 360)
     anomaly = math.radians(357.52911 + t * (35999.05029 - 0.0001537 * t))
@@ -210,26 +210,27 @@ class SolarModel:
             result.append([stamp, position["azimuth"], position["elevation"]])
         return result
 
-    def solstices(self, year: int) -> list[dict[str, str]]:
-        """Find the 90° and 270° apparent ecliptic longitude crossings."""
-        events = []
-        for month, degrees in ((6, 90), (12, 270)):
-            left = int(datetime(year, month, 18, tzinfo=UTC).timestamp())
-            right = int(datetime(year, month, 24, tzinfo=UTC).timestamp())
-            while right - left > 1:
-                middle = (left + right) // 2
-                longitude = math.degrees(_solar_elements(middle)[3]) % 360
-                if longitude < degrees:
-                    left = middle
-                else:
-                    right = middle
-            events.append(
-                {
-                    "month": str(month),
-                    "date": datetime.fromtimestamp(right, self.zone).date().isoformat(),
-                }
-            )
-        return events
+    def season_events(self, year: int) -> list[dict[str, str]]:
+        """Calculate the four events as local dates, named for the hemisphere."""
+        events = Seasons(year)
+        kinds = ("spring_equinox", "summer_solstice", "autumn_equinox", "winter_solstice")
+        if self.latitude < 0:
+            kinds = kinds[2:] + kinds[:2]
+        instants = (events.mar_equinox, events.jun_solstice, events.sep_equinox, events.dec_solstice)
+        return [
+            {"kind": kind, "date": instant.Utc().replace(tzinfo=UTC).astimezone(self.zone).date().isoformat()}
+            for kind, instant in zip(kinds, instants, strict=True)
+        ]
+
+    def next_season_events(self, today: date) -> list[dict]:
+        """Find the next occurrence per event and count local calendar days."""
+        events = self.season_events(today.year) + self.season_events(today.year + 1)
+        upcoming = {}
+        for event in events:
+            days = (date.fromisoformat(event["date"]) - today).days
+            if days >= 0 and event["kind"] not in upcoming:
+                upcoming[event["kind"]] = {**event, "days": days}
+        return list(upcoming.values())
 
     def _values(self, position: Position) -> tuple[float, float]:
         return position.elevation, position.upper_limb - self.horizon.at(

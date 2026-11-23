@@ -19,11 +19,15 @@ Marketplace henter oppdateringer fra GitHub Releases. Start Home Assistant på n
 
 | Kort | Innhold | Type i YAML |
 |---|---|---|
-| **Sol i dag** | Status, neste overgang, døgnstripe, solperioder, dagslengde og utvidbare lysfaser. Viser endringer i direkte soltid fra i går, til i morgen og for siste og neste 7 dager. | `custom:terrain-sun-today` |
-| **Lokal horisont** | Viser terreng, solbane og direkte solperioder for valgt dato. Velg mellom **Utsnitt**, **360°**, **Solbane** og **Månebane**. | `custom:terrain-sun-horizon` |
-| **Solåret** | Årsgraf i klokkeslett- og varighetsvisning, datovelger, døgnstripe, neste dato med tilsvarende soltid, solverv og valgfritt klokkeslett for kveldssol. | `custom:terrain-sun-year` |
+| **Sol i dag** | Døgnstripe, solperioder, dagslengde, terrengskygge og lysfaser for valgt dato. Starter på dagens dato, som også viser status og neste overgang. | `custom:terrain-sun-today` |
+| **Lokal horisont** | Terrengprofil, sol- og månebaner og vinkelverdier. Velg mellom **Utsnitt**, **360°**, **Solbane** og **Månebane**. | `custom:terrain-sun-horizon` |
+| **Solåret** | Årsgraf i klokkeslett- og varighetsvisning, årssummer, neste solverv og jevndøgn, neste dato med tilsvarende soltid og kveldssol ved valgt klokkeslett. | `custom:terrain-sun-year` |
 
-**Neste gang det er så lyst** sammenligner samlet direkte soltid for valgt dato med dagene etter neste solverv. Kortet viser datoen som ligger nærmest ved første tilbakekomst til omtrent samme soltid. Har valgt dato ingen direkte sol, viser kortet første kommende dato med direkte sol, innen ett år. I sjudagersradene sammenlignes dagens direkte soltid med datoene nøyaktig 7 dager før og etter.
+I **Sol i dag** sammenlignes direkte soltid med dagen før, dagen etter og datoene nøyaktig sju dager før og etter valgt dato.
+
+**Neste gang det er så lyst** sammenligner samlet direkte soltid for valgt dato med dagene etter neste solverv. Kortet viser datoen som ligger nærmest ved første tilbakekomst til omtrent samme soltid. Har valgt dato ingen direkte sol, viser kortet første kommende dato med direkte sol, innen ett år.
+
+**Årssummer** gjelder valgt kalenderår. Mulig direkte sol er beregnet for klar himmel. Andelen i terrengskygge er antall dagslystimer skjermet av terrenget delt på dagslystimene ved fri horisont. Årsgrafen markerer solverv og jevndøgn i valgt år. Nedtellingen viser neste forekomst av hver hendelse fra i dag, i lokale kalenderdager. Datoene beregnes med Astronomy Engine og vises i tidssonen til Home Assistant.
 
 Kort kan også legges til med typen i tabellen. Etter en oppdatering laster du inn Home Assistant-fanen på nytt. Integrasjonen registrerer kortfilen automatisk, også når dashboardressurser styres fra YAML. En eksisterende YAML-oppføring med `/terrain_sun/terrain-sun.js` og typen `module` kan brukes videre.
 
@@ -56,7 +60,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horiz
 
 #### Sol i dag
 
-<img src="docs/images/sol-i-dag.webp" width="600" alt="Sol i dag med døgnstripe, endringer i direkte soltid og utvidede lysfaser">
+<img src="docs/images/sol-i-dag.webp" width="600" alt="Sol i dag med datovelger, døgnstripe, endringer i direkte soltid og utvidede lysfaser">
 
 #### Lokal horisont
 
@@ -64,7 +68,7 @@ Kortene er vist i Home Assistant med [eksempelprofilen fra Øyer](examples/horiz
 
 #### Solåret
 
-<img src="docs/images/solaret.webp" width="600" alt="Solåret med årsgraf, valgt dato, døgnstripe og datoen for neste gang det er så lyst">
+<img src="docs/images/solaret.webp" width="600" alt="Solåret med årsgraf, årssummer og nedtelling til solverv og jevndøgn">
 
 ## Entiteter og beregninger
 
